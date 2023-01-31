@@ -45,12 +45,8 @@ error_labels = []
 for filename, label in zip(filenames, labels):
     img = cv2.imread(join('my_images', filename))
     img = img[10:434, 10:445]
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # apply canny edge detection
-    plt.imshow(gray, cmap='gray')
-    plt.show()
-    edges = cv2.Canny(gray, 1, 1)
-    plt.imshow(edges, cmap='gray')
+    img = cv2.bitwise_not(img)
+    plt.imshow(img, cmap='gray')
     plt.show()
     out_dict = process_piece(img, after_segmentation_func=postprocess, scale_factor=0.4, 
                              harris_block_size=5, harris_ksize=5,
@@ -59,7 +55,9 @@ for filename, label in zip(filenames, labels):
     plt.figure(figsize=(6, 6))
     plt.title("{0} - {1}".format(filename, label))
     plt.imshow(out_dict['extracted'], cmap='gray')
+    
     plt.scatter(out_dict['xy'][:, 0], out_dict['xy'][:, 1], color='red')
+    
     #plt.colorbar()
     plt.show()
     
