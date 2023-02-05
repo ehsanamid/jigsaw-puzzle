@@ -1,5 +1,8 @@
 
 import cv2
+from skimage import io
+from skimage.metrics import structural_similarity as ssim
+import numpy as np
 
 def get_edges(image_path):
     # read image
@@ -45,4 +48,18 @@ cv2.imshow("Matches", img_matches)
 cv2.waitKey(0)
 
 
+def similarity():
+    
+
+    # Load the reference image
+    ref_image = io.imread('reference.jpg')
+
+    # Load the list of images
+    images = [io.imread(f'image_{i}.jpg') for i in range(1, 10)]
+
+    # Compute the SSIM similarity scores for each image
+    similarity_scores = [ssim(ref_image, img) for img in images]
+
+    # Find the index of the most similar image
+    most_similar_index = np.argmax(similarity_scores)
 
