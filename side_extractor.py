@@ -434,7 +434,7 @@ def cluster_lines(lines):
 
 
         
-def get_corners(dst, neighborhood_size=5, score_threshold=0.3, minmax_threshold=100):
+def get_corners(dst, neighborhood_size=5, score_threshold=0.3, minmax_threshold=100)-> np.array:
     
     """
     Given the input Harris image (where in each pixel the Harris function is computed),
@@ -647,13 +647,13 @@ def get_default_params():
     return side_extractor_default_values.copy()
 
 
-def process_piece(image, **kwargs):
+def process_piece1(image,out_dict, **kwargs):
     
     params = get_default_params()
     for key in kwargs:
         params[key] = kwargs[key]
     
-    out_dict = {}
+    # out_dict = {}
     
     try:
     
@@ -696,6 +696,26 @@ def process_piece(image, **kwargs):
         if len(xy) < 4:
             raise RuntimeError('Not enough corners')
 
+        
+    except Exception as e:
+        out_dict['error'] = e
+    
+    finally:
+        return gray
+            
+
+def process_piece2(out_dict, **kwargs):
+    
+    params = get_default_params()
+    for key in kwargs:
+        params[key] = kwargs[key]
+    
+    # out_dict = {}
+    
+    try:
+        gray = out_dict['extracted']
+        
+        xy = out_dict['xy']
         intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
         if intersections is None:
             raise RuntimeError('No rectangle found')
@@ -734,6 +754,6 @@ def process_piece(image, **kwargs):
     except Exception as e:
         out_dict['error'] = e
     
-    finally:
-        return out_dict
+    # finally:
+    #     return out_dict
             
