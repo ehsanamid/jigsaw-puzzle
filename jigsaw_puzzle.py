@@ -6,6 +6,7 @@ import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 from side_extractor import process_piece1,process_piece2, plot_side_images
+from ChatGPT import compare_images
 from functools import partial
 import traceback
 
@@ -164,6 +165,7 @@ def main():
     x_offset = 0
     y_offset = 0
 
+    changed = False
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')    
     for filename in filenames:
@@ -200,14 +202,32 @@ def main():
                 if(puzzel_piece(image,out_dict,df_pieces,df_sides,postprocess)):
                     extract_edges(out_dict)
                     df_pieces,df_sides = update_dataframes(df_pieces,df_sides,out_dict)
+                    changed = True
                 # cv2.imshow(window_name, image) 
                 # cv2.waitKey(0)
                 print(f"puzzel piece {window_name} done")
                 
 
     # plot_images()
-    df_pieces.to_csv('pieces.csv', index=False)
-    df_sides.to_csv('sides.csv', index=False)
+    if(changed):
+        df_pieces.to_csv('pieces.csv', index=False)
+        df_sides.to_csv('sides.csv', index=False)
+    
+
+    # Creating Empty DataFrame and Storing it in variable df
+    
+    
+    piece_filenames = os.listdir('output_folder')
+    piece_filenames.sort()
+    
+    
+    for filename in piece_filenames:
+        ret = compare_images(filename,piece_filenames,"output_folder")
+        df = pd.DataFrame() 
+        df['piece'] = piece_filenames
+        df["_similarity"] = ret
+        name = os.path.splitext(filename)[0]+".csv"
+        df.to_csv(name, index=False)
 
 
 if __name__ == "__main__":
