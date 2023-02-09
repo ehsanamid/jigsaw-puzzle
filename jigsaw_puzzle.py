@@ -25,7 +25,7 @@ def puzzel_piece(img,out_dict,df_pieces,df_sides,postprocess)-> bool:
     gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
                              harris_block_size=5, harris_ksize=5,
                              corner_score_threshold=0.2, corner_minmax_threshold=100)
-
+    
     color1 = (255, 0, 0)
     color2 = (0, 255, 0)
     # new_xy = np.zeros((2,0))
@@ -151,7 +151,32 @@ def update_dataframes(df_pieces,df_sides,out_dict):
     df_sides = update_sides_dataframes(df_sides,out_dict)
     return df_pieces,df_sides
 
+
+
+
+def find_image(big_image, small_image):
+    result = cv2.matchTemplate(big_image, small_image, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+    if max_val >= 0.5:
+        return max_loc
+    else:
+        return False
+
+
+
 def main():
+    
+    # Example usage
+    big_image = cv2.imread("large_image.jpg")
+    small_image = cv2.imread(join('output_folder', "IMG_001_1_1_3_out.jpg"))
+
+    result = find_image(big_image, small_image)
+    if result:
+        print("Small image found at position: ", result)
+    else:
+        print("Small image not found in big image")
+
 
     filenames = os.listdir('my_images')
     filenames.sort()
@@ -177,13 +202,13 @@ def main():
         y_offset = int(imge_size[0]/5)
         # print(f"x_offset = {x_offset} y_offset = {y_offset}")
         #for i in range(0, 5): 
-        for i in range(0, 5): 
+        for i in range(0, 1): 
             #for j in range(0, 7):
-            for j in range(0, 7):
+            for j in range(0, 1):
                 window_name = os.path.splitext(filename)[0] + '_' + str(i+1) + "_" + str(j+1)
-                if(window_name in df_pieces['piece'].unique()):
-                    print(f"puzzle {window_name} already exists")
-                    continue
+                # if(window_name in df_pieces['piece'].unique()):
+                #     print(f"puzzle {window_name} already exists")
+                #     continue
                 start_point_x = 30 + x_offset * i
                 start_point_y = 30 + y_offset * j
                 start_point = (start_point_x, start_point_y)
@@ -203,15 +228,19 @@ def main():
                     extract_edges(out_dict)
                     df_pieces,df_sides = update_dataframes(df_pieces,df_sides,out_dict)
                     changed = True
-                # cv2.imshow(window_name, image) 
+                side_image = out_dict['class_image'] * 255
+                # cv2.imshow(window_name, side_image) 
                 # cv2.waitKey(0)
+                
+        
+                cv2.imwrite("large_image.jpg", side_image)
                 print(f"puzzel piece {window_name} done")
                 
 
     # plot_images()
-    if(changed):
-        df_pieces.to_csv('pieces.csv', index=False)
-        df_sides.to_csv('sides.csv', index=False)
+    # if(changed):
+    #     df_pieces.to_csv('pieces.csv', index=False)
+    #     df_sides.to_csv('sides.csv', index=False)
     
 
     # Creating Empty DataFrame and Storing it in variable df

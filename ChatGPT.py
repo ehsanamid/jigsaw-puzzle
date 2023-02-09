@@ -100,7 +100,7 @@ def compare_images(src_img_filename: str, image_filenames: list,folder_name: str
     src_img = cv2.imread(join(folder_name, src_img_filename))
     # cv2.imshow("test1",src_img)
     # cv2.waitKey(0)
-    src_img = cv2.flip(src_img, 1)
+    # src_img = cv2.flip(src_img, 1)
     # cv2.imshow("test1",src_img)
     # cv2.waitKey(0)
     # Create a list to store the similarity scores
