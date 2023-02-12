@@ -148,7 +148,7 @@ def main():
     # flipHorizontal = cv2.flip(small_image, 1)
     # large_image = cv2.imread(join('pieces', 'IMG_001_1_6.jpg'))
     # check(flipHorizontal, large_image)
-    res = similarity1('IMG_001_1_7_3_int.jpg','output_folder')
+    res = similarity1('IMG_001_1_7_3_int.jpg','sides')
 
 
 if __name__ == "__main__":
