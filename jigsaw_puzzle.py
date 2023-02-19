@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
-from side_extractor import process_piece1,process_piece2, plot_side_images
+from side_extractor import process_piece1,process_piece2, plot_side_images,order_corners
 from ChatGPT import compare_images
 from functools import partial
 import traceback
@@ -389,6 +389,49 @@ def read_image(filename: str,folder_name: str):
             print(f"puzzel piece {window_name} done")
 '''
 
+def detect_side_images(df_pieces: pd.DataFrame,pieces_folder: str,sides_folder: str):
+    postprocess = partial(cv2.blur, ksize=(3, 3))
+    for piece_file_name in df_pieces['piece']:
+        if(df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] == 'processed'):
+            img = cv2.imread(join(pieces_folder, piece_file_name+".jpg"))
+            out_dict = {}
+            out_dict['name'] = piece_file_name
+            df_pieces = detect_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
+            df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] = 'side'
+    return df_pieces
+
+# function to detect side image for all pices bbased on the corners writen in df_pieces
+def detect_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sides_folder: str,postprocess):
+    
+     
+    gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
+                             harris_block_size=5, harris_ksize=5,
+                             corner_score_threshold=0.2, corner_minmax_threshold=100)
+    
+    x1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X1'].iloc[0]
+    y1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y1'].iloc[0]
+    x2 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X2'].iloc[0]
+    y2 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y2'].iloc[0]
+    x3 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X3'].iloc[0]
+    y3 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y3'].iloc[0]
+    x4 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X4'].iloc[0]
+    y4 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y4'].iloc[0]
+    xy_array = np.array([[x1,y1],[x2,y2],[x3,y3],[x4,y4]])
+    # xy_array = out_dict['xy']
+    xy = order_corners(xy_array)
+    out_dict['xy'] = xy
+    
+    process_piece2(out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
+                             harris_block_size=5, harris_ksize=5,
+                             corner_score_threshold=0.2, corner_minmax_threshold=100)
+    extract_edges(out_dict)
+    # plt.figure(figsize=(6, 6))
+    # plt.title(out_dict['name'])
+    # plt.imshow(out_dict['extracted'], cmap='gray')
+    # plt.scatter(out_dict['xy'][:, 0], out_dict['xy'][:, 1], color='red')
+    # plt.show()
+    return True
+
 def main():
     
     df_pieces = pd.read_csv('pieces.csv')
@@ -396,8 +439,11 @@ def main():
     df_pieces = read_camera_images(page_number:= 1,camera_folder:='camera',piece_folder:='pieces',df_pieces)
     df_pieces.to_csv('pieces.csv', index=False)
     df_pieces = get_corners('pieces_threshold',df_pieces)
-    df_pieces.to_csv('pieces.csv', index=False)
-    show_image_with_corners('pieces_threshold',df_pieces)
+    
+    # show_image_with_corners('pieces_threshold',df_pieces)
+
+    df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
+    # df_pieces.to_csv('pieces.csv', index=False)
 '''
     # find_image_test()
     filenames = os.listdir('my_images')

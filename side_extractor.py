@@ -217,11 +217,32 @@ def corner_detection(edges, intersections, xb_yb : tuple, rect_size=50, show=Fal
     return corners
 
 
+def order_corners1(corners):
+    # Sort corners in increasing order of x-coordinate
+    corners = sorted(corners,key=lambda corner: corner[0])
+    
+    # Split sorted corners into top and bottom halves
+    top_corners, bottom_corners = corners[:2], corners[2:]
+    
+    # Sort top and bottom halves separately in increasing order of y-coordinate
+    top_corners.sort(key=lambda corner: corner[1])
+    bottom_corners.sort(key=lambda corner: corner[1])
+    
+    # Combine sorted top and bottom halves into final sorted list of corners
+    sorted_corners = top_corners + bottom_corners
+    
+    return sorted_corners
+
+
 def order_corners(corners):
-    corners.sort(key=lambda k: k[0] + k[1])
-    antidiag_corners = sorted(corners[1:3], key=lambda k: k[1])
-    corners[1:3] = antidiag_corners
-    return corners
+    try:
+        corners = sorted(corners,key=lambda k: k[0] + k[1])
+        antidiag_corners = sorted(corners[1:3], key=lambda k: k[1])
+        corners[1:3] = antidiag_corners
+        return corners
+    except ValueError:
+        print(ValueError)
+        return None
 
 def compute_line_params(corners):
     return [get_line_through_points(corners[i1], corners[i2]) for i1, i2 in _corner_indexes]
@@ -331,23 +352,24 @@ def create_side_images(class_image, inout, corners):
         side_corners_idx = _corner_indexes[cl - 1]
 
         htw = htw[0] if io == 'in' else htw[1]
-        side_image_rot, M = rotate(side_image, htw)
+        # side_image_rot, M = rotate(side_image, htw)
+        side_image_rot = side_image
 
-        side_corners = np.array(np.round([M.dot((corners[corner_idx][0], corners[corner_idx][1], 1)) 
-                                          for corner_idx in side_corners_idx])).astype(np.int)
+        # side_corners = np.array(np.round([M.dot((corners[corner_idx][0], corners[corner_idx][1], 1)) 
+        #                                   for corner_idx in side_corners_idx])).astype(np.int)
 
         # Order the corners from higher (smaller y coordinate)
-        if side_corners[0, 1] > side_corners[1, 1]:
-            side_corners = side_corners[::-1]
+        # if side_corners[0, 1] > side_corners[1, 1]:
+        #     side_corners = side_corners[::-1]
 
             
         # Correct the angle on each side separately
-        if side_corners[0, 0] != side_corners[1, 0]:
-            m = float(side_corners[1, 1] - side_corners[0, 1]) / (side_corners[1, 0] - side_corners[0, 0])
-            corners_angle = np.arctan(m) * 180 / np.pi
-            correction_angle = - (corners_angle / abs(corners_angle) * 90 - corners_angle)
+        # if side_corners[0, 0] != side_corners[1, 0]:
+        #     m = float(side_corners[1, 1] - side_corners[0, 1]) / (side_corners[1, 0] - side_corners[0, 0])
+        #     corners_angle = np.arctan(m) * 180 / np.pi
+        #     correction_angle = - (corners_angle / abs(corners_angle) * 90 - corners_angle)
 
-            side_image_rot, M = rotate(side_image_rot, correction_angle)
+        #     side_image_rot, M = rotate(side_image_rot, correction_angle)
 
         side_image_rot[side_image_rot <= 0.5] = 0
         side_image_rot[side_image_rot > 0.5] = 1
@@ -657,29 +679,36 @@ def process_piece1(image,out_dict, **kwargs):
     
     try:
     
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        cv2.imwrite('gray1.png',gray1)
 
-        before_segmentation_func = params['before_segmentation_func']
-        after_segmentation_func = params['after_segmentation_func']
-        bin_threshold = params['bin_threshold']
+        ret, gray = cv2.threshold(gray1, 200, 255, cv2.THRESH_BINARY_INV) 
+        # cv2.imwrite('thr1.png',thr1)
+        # ret, thr2 = cv2.threshold(gray, 200, 0, cv2.THRESH_BINARY_INV) 
+        # cv2.imwrite('thr2.png',thr2)
 
-        if before_segmentation_func is not None:
-            gray = before_segmentation_func(gray)
+        # before_segmentation_func = params['before_segmentation_func']
+        # after_segmentation_func = params['after_segmentation_func']
+        # bin_threshold = params['bin_threshold']
 
-        gray = segment_piece(gray, bin_threshold)
+        # if before_segmentation_func is not None:
+        #     gray = before_segmentation_func(gray)
+
+        # gray = segment_piece(gray, bin_threshold)
         out_dict['segmented'] = gray.copy()
 
-        if after_segmentation_func is not None:
-            gray = after_segmentation_func(gray)
+        # if after_segmentation_func is not None:
+        #     gray = after_segmentation_func(gray)
 
-        gray = extract_piece(gray)
+        # gray = extract_piece(gray)
         ret, labels = cv2.connectedComponents(gray)
         connected_areas = [np.count_nonzero(labels == l) for l in range(1, ret)]
         max_area_idx = np.argmax(connected_areas) + 1
         gray[labels != max_area_idx] = 0
         gray = 255 - gray
-        gray = extract_piece(gray)
-        
+        # gray = extract_piece(gray)
+        cv2.imwrite('gray2.png',gray)
         out_dict['extracted'] = gray.copy()
         
         scaled_size = int(gray.shape[0] * params['scale_factor']), int(gray.shape[1] * params['scale_factor'])
@@ -691,7 +720,7 @@ def process_piece1(image,out_dict, **kwargs):
 
         xy = get_corners(harris, params['corner_nsize'], params['corner_score_threshold'], params['corner_minmax_threshold'])
         xy = np.round(xy / params['scale_factor']).astype(np.int)
-        out_dict['xy'] = xy
+        out_dict['xy1'] = xy
                              
         if len(xy) < 4:
             raise RuntimeError('Not enough corners')
@@ -716,39 +745,55 @@ def process_piece2(out_dict, **kwargs):
         gray = out_dict['extracted']
         
         xy = out_dict['xy']
-        intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
-        if intersections is None:
-            raise RuntimeError('No rectangle found')
-
-        if intersections[1, 0] == intersections[0, 0]:
-            rotation_angle = 90
-        else:
-            rotation_angle = np.arctan2(intersections[1, 1] - intersections[0, 1], intersections[1, 0] - intersections[0, 0]) * 180 / np.pi
         
-        edges = gray - cv2.erode(gray, np.ones((params['edge_erode_size'], params['edge_erode_size'])))
+        #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
+        # if intersections is None:
+        #     raise RuntimeError('No rectangle found')
 
-        # Rotate all images
-        edges, M = rotate(edges, rotation_angle)
-        out_dict['edges'] = edges
-
-        # Rotate intersection points
-        intersections = np.array(np.round([M.dot((point[0], point[1], 1)) for point in intersections])).astype(np.int)
-
+        # if intersections[1, 0] == intersections[0, 0]:
+        #     rotation_angle = 90
+        # else:
+        #     rotation_angle = np.arctan2(intersections[1, 1] - intersections[0, 1], intersections[1, 0] - intersections[0, 0]) * 180 / np.pi
         
+        # edges = gray - cv2.erode(gray, np.ones((params['edge_erode_size'], params['edge_erode_size'])))
+        
+        # # Rotate all images
+        # edges, M = rotate(edges, rotation_angle)
+        # out_dict['edges'] = edges
+       
+        # # Rotate intersection points
+        # intersections = np.array(np.round([M.dot((point[0], point[1], 1)) for point in intersections])).astype(np.int)
+
+        cv2.imwrite('edges.png', gray)
         yb, xb = compute_barycentre(gray)
         
-        corners = corner_detection(edges, intersections, (xb, yb), params['corner_refine_rect_size'], show=False)
-        corners = order_corners(corners)
-        line_params = compute_line_params(corners)
+        # corners = corner_detection(edges, intersections, (xb, yb), params['corner_refine_rect_size'], show=False)
+        # corners = order_corners(corners)
+        # line_params = compute_line_params(corners)
+        # class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
+        #                                   params['shape_classification_nhs'])
+        line_params = compute_line_params(xy)
+        # color2 = (0,255,255)
+        # cv2.line(gray, (xy[0][0], xy[0][1]), (xy[1][0], xy[1][1]), color2, 2)
+        # cv2.line(gray, (xy[1][0], xy[1][1]), (xy[2][0], xy[2][1]), color2, 2)
+        # cv2.line(gray, (xy[2][0], xy[2][1]), (xy[3][0], xy[3][1]), color2, 2)
+        # cv2.line(gray, (xy[3][0], xy[3][1]), (xy[0][0], xy[0][1]), color2, 2)
+        # cv2.imshow('gray', gray)
+        # cv2.waitKey(0)
+        # detect edges of gray image
+        edges = cv2.Canny(gray, 100, 200)
+        # cv2.imshow('edges', edges)
+        # cv2.waitKey(0)
         class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
                                           params['shape_classification_nhs'])
-
         out_dict['class_image'] = class_image
-
+        # cv2.imshow('class_image', class_image)
+        # cv2.waitKey(0)
         inout = compute_inout(class_image, line_params, (xb, yb), params['inout_distance_threshold'])
         out_dict['inout'] = inout
-
-        side_images = create_side_images(class_image, inout, corners)
+        cv2.imwrite('class_image.png', class_image)
+        # side_images = create_side_images(gray, inout, corners)
+        side_images = create_side_images(gray, inout, xy)
         out_dict['side_images'] = side_images
         
     except Exception as e:

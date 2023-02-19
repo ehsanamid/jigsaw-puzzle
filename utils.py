@@ -5,11 +5,9 @@ def distance_point_line_squared(a_b_c : tuple, x0_y0 : tuple):
     """
     Computes the squared distance of a 2D point (x0, y0) from a line ax + by + c = 0
     """
-    a = a_b_c[0]
-    b = a_b_c[1]
-    c = a_b_c[2]
-    x0 = x0_y0[0]
-    y0 = x0_y0[1]
+    a ,b ,c = a_b_c
+    x0 ,y0 = x0_y0
+    
 
     return (a*x0 + b*y0 + c)**2 / (a**2 + b**2)
 
@@ -31,11 +29,8 @@ def distance_point_line_signed(a_b_c : tuple, x0_y0 : tuple):
     """
     Computes the signed distance of a 2D point (x0, y0) from a line ax + by + c = 0
     """
-    a = a_b_c[0]
-    b = a_b_c[1]
-    c = a_b_c[2]
-    x0 = x0_y0[0]
-    y0 = x0_y0[1]
+    a ,b ,c = a_b_c
+    x0 ,y0 = x0_y0
     
     return (a*x0 + b*y0 + c) / np.sqrt(a**2 + b**2)
 
