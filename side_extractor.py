@@ -668,6 +668,24 @@ def get_default_params():
     
     return side_extractor_default_values.copy()
 
+# function to return a piece of contour between two points
+def get_piece_contour(contour, p1, p2):
+    # get the index of the points in the contour
+    idx1 = np.where((contour == p1).all(axis=2))[0][0]
+    idx2 = np.where((contour == p2).all(axis=2))[0][0]
+    # get the piece of contour
+    if idx1 < idx2:
+        piece = contour[idx1:idx2]
+    else:
+        piece = np.concatenate((contour[idx1:], contour[:idx2]))
+    return piece
+
+# function to show a piece of contour between two points
+def show_piece_contour(contour, p1, p2):
+    piece = get_piece_contour(contour, p1, p2)
+    plt.plot(piece[:, 0, 0], piece[:, 0, 1], 'r-')
+    plt.show()
+
 
 def process_piece1(image,out_dict, **kwargs):
     
@@ -684,6 +702,11 @@ def process_piece1(image,out_dict, **kwargs):
         cv2.imwrite('gray1.png',gray1)
 
         ret, gray = cv2.threshold(gray1, 200, 255, cv2.THRESH_BINARY_INV) 
+
+        
+        
+        
+
         # cv2.imwrite('thr1.png',thr1)
         # ret, thr2 = cv2.threshold(gray, 200, 0, cv2.THRESH_BINARY_INV) 
         # cv2.imwrite('thr2.png',thr2)
@@ -746,6 +769,22 @@ def process_piece2(out_dict, **kwargs):
         
         xy = out_dict['xy']
         
+        # get the countours of the piece
+        contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # get the biggest contour
+        cnt = max(contours, key=cv2.contourArea)
+        # get the bounding rectangle of the contour
+        x, y, w, h = cv2.boundingRect(cnt)
+        # get the bounding rectangle of the contour
+        rect = cv2.minAreaRect(cnt)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        x1 = out_dict['xy'][0][0]
+        y1 = out_dict['xy'][0][1]
+        x2 = out_dict['xy'][1][0]
+        y2 = out_dict['xy'][1][1]
+        show_piece_contour(contours, (x1,y1), (x2,y2))
+
         #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
         # if intersections is None:
         #     raise RuntimeError('No rectangle found')
