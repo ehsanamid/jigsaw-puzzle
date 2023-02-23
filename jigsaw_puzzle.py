@@ -396,17 +396,12 @@ def detect_side_images(df_pieces: pd.DataFrame,pieces_folder: str,sides_folder: 
             img = cv2.imread(join(pieces_folder, piece_file_name+".jpg"))
             out_dict = {}
             out_dict['name'] = piece_file_name
-            df_pieces = detect_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
+            df_pieces = get_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
             df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] = 'side'
     return df_pieces
 
 # function to detect side image for all pices bbased on the corners writen in df_pieces
-def detect_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sides_folder: str,postprocess):
-    
-     
-    gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
-                             harris_block_size=5, harris_ksize=5,
-                             corner_score_threshold=0.2, corner_minmax_threshold=100)
+def get_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sides_folder: str,postprocess):
     
     x1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X1'].iloc[0]
     y1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y1'].iloc[0]
@@ -420,10 +415,12 @@ def detect_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,
     # xy_array = out_dict['xy']
     xy = order_corners(xy_array)
     out_dict['xy'] = xy
-    
-    process_piece2(out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
+    gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
                              harris_block_size=5, harris_ksize=5,
                              corner_score_threshold=0.2, corner_minmax_threshold=100)
+    
+    
+    
     extract_edges(out_dict)
     # plt.figure(figsize=(6, 6))
     # plt.title(out_dict['name'])

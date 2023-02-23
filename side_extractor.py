@@ -237,8 +237,8 @@ def order_corners1(corners):
 def order_corners(corners):
     try:
         corners = sorted(corners,key=lambda k: k[0] + k[1])
-        antidiag_corners = sorted(corners[1:3], key=lambda k: k[1])
-        corners[1:3] = antidiag_corners
+        antidiag_corners = sorted(corners[2:4] , reverse= True  , key=lambda k: k[1])
+        corners[2:4] = antidiag_corners
         return corners
     except ValueError:
         print(ValueError)
@@ -686,6 +686,23 @@ def show_piece_contour(contour, p1, p2):
     plt.plot(piece[:, 0, 0], piece[:, 0, 1], 'r-')
     plt.show()
 
+def show_contour_piece(contour, start, end):
+    """Shows a piece of contour between two points."""
+    contour = np.asarray(contour)
+    start_idx = np.argmin(np.sum((contour - start)**2, axis=1))
+    end_idx = np.argmin(np.sum((contour - end)**2, axis=1))
+    if end_idx < start_idx:
+        start_idx, end_idx = end_idx, start_idx
+    plt.plot(contour[start_idx:end_idx+1, 0], contour[start_idx:end_idx+1, 1])
+    plt.show()
+
+def find_nearest_point(contour, point):
+    """Finds the nearest point in a contour to a given point."""
+    contour = np.asarray(contour)
+    dists = np.sqrt(np.sum((contour - point)**2, axis=1))
+    nearest_idx = np.argmin(dists)
+    nearest_point = contour[nearest_idx]
+    return nearest_point     
 
 def process_piece1(image,out_dict, **kwargs):
     
@@ -703,50 +720,91 @@ def process_piece1(image,out_dict, **kwargs):
 
         ret, gray = cv2.threshold(gray1, 200, 255, cv2.THRESH_BINARY_INV) 
 
-        
-        
-        
+        cv2.imwrite('gray2.png',gray)
 
-        # cv2.imwrite('thr1.png',thr1)
-        # ret, thr2 = cv2.threshold(gray, 200, 0, cv2.THRESH_BINARY_INV) 
-        # cv2.imwrite('thr2.png',thr2)
-
-        # before_segmentation_func = params['before_segmentation_func']
-        # after_segmentation_func = params['after_segmentation_func']
-        # bin_threshold = params['bin_threshold']
-
-        # if before_segmentation_func is not None:
-        #     gray = before_segmentation_func(gray)
-
-        # gray = segment_piece(gray, bin_threshold)
-        out_dict['segmented'] = gray.copy()
-
-        # if after_segmentation_func is not None:
-        #     gray = after_segmentation_func(gray)
-
-        # gray = extract_piece(gray)
+       
         ret, labels = cv2.connectedComponents(gray)
         connected_areas = [np.count_nonzero(labels == l) for l in range(1, ret)]
         max_area_idx = np.argmax(connected_areas) + 1
         gray[labels != max_area_idx] = 0
         gray = 255 - gray
         # gray = extract_piece(gray)
-        cv2.imwrite('gray2.png',gray)
+        cv2.imwrite('gray3.png',gray)
         out_dict['extracted'] = gray.copy()
         
-        scaled_size = int(gray.shape[0] * params['scale_factor']), int(gray.shape[1] * params['scale_factor'])
-        gray_harris = cv2.resize(gray, scaled_size)
+        xy = out_dict['xy']
+        edged = cv2.Canny(gray,30,200)
         
-        harris = cv2.cornerHarris(gray_harris, params['harris_blocksize'], params['harris_ksize'], 0.04)
-        harris = harris * gray_harris
-        out_dict['harris'] = harris
+        # get the countours of the piece
+        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # find the closes point in the contour to a point
+        contour = max(contours, key=cv2.contourArea)
+        contour_list = []
+        for c in contour:
+            contour_list.append(c[0].tolist())
 
-        xy = get_corners(harris, params['corner_nsize'], params['corner_score_threshold'], params['corner_minmax_threshold'])
-        xy = np.round(xy / params['scale_factor']).astype(np.int)
-        out_dict['xy1'] = xy
-                             
-        if len(xy) < 4:
-            raise RuntimeError('Not enough corners')
+        p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
+        p2 = find_nearest_point(contour_list, (xy[1][0],xy[1][1]))
+        p3 = find_nearest_point(contour_list, (xy[2][0],xy[2][1]))
+        p4 = find_nearest_point(contour_list, (xy[3][0],xy[3][1]))
+        
+
+        # show_piece_contour(contours, p1, p2)
+        show_contour_piece(contour_list, p1, p2)
+        show_contour_piece(contour_list, p2, p3)
+        show_contour_piece(contour_list, p3, p4)
+        show_contour_piece(contour_list, p4, p1)
+
+        #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
+        # if intersections is None:
+        #     raise RuntimeError('No rectangle found')
+
+        # if intersections[1, 0] == intersections[0, 0]:
+        #     rotation_angle = 90
+        # else:
+        #     rotation_angle = np.arctan2(intersections[1, 1] - intersections[0, 1], intersections[1, 0] - intersections[0, 0]) * 180 / np.pi
+        
+        # edges = gray - cv2.erode(gray, np.ones((params['edge_erode_size'], params['edge_erode_size'])))
+        
+        # # Rotate all images
+        # edges, M = rotate(edges, rotation_angle)
+        # out_dict['edges'] = edges
+       
+        # # Rotate intersection points
+        # intersections = np.array(np.round([M.dot((point[0], point[1], 1)) for point in intersections])).astype(np.int)
+
+        cv2.imwrite('edges.png', gray)
+        yb, xb = compute_barycentre(gray)
+        
+        # corners = corner_detection(edges, intersections, (xb, yb), params['corner_refine_rect_size'], show=False)
+        # corners = order_corners(corners)
+        # line_params = compute_line_params(corners)
+        # class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
+        #                                   params['shape_classification_nhs'])
+        line_params = compute_line_params(xy)
+        # color2 = (0,255,255)
+        # cv2.line(gray, (xy[0][0], xy[0][1]), (xy[1][0], xy[1][1]), color2, 2)
+        # cv2.line(gray, (xy[1][0], xy[1][1]), (xy[2][0], xy[2][1]), color2, 2)
+        # cv2.line(gray, (xy[2][0], xy[2][1]), (xy[3][0], xy[3][1]), color2, 2)
+        # cv2.line(gray, (xy[3][0], xy[3][1]), (xy[0][0], xy[0][1]), color2, 2)
+        # cv2.imshow('gray', gray)
+        # cv2.waitKey(0)
+        # detect edges of gray image
+        edges = cv2.Canny(gray, 100, 200)
+        # cv2.imshow('edges', edges)
+        # cv2.waitKey(0)
+        class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
+                                          params['shape_classification_nhs'])
+        out_dict['class_image'] = class_image
+        # cv2.imshow('class_image', class_image)
+        # cv2.waitKey(0)
+        inout = compute_inout(class_image, line_params, (xb, yb), params['inout_distance_threshold'])
+        out_dict['inout'] = inout
+        cv2.imwrite('class_image.png', class_image)
+        # side_images = create_side_images(gray, inout, corners)
+        side_images = create_side_images(gray, inout, xy)
+        out_dict['side_images'] = side_images
+
 
         
     except Exception as e:
@@ -754,7 +812,8 @@ def process_piece1(image,out_dict, **kwargs):
     
     finally:
         return gray
-            
+
+       
 
 def process_piece2(out_dict, **kwargs):
     
@@ -768,9 +827,13 @@ def process_piece2(out_dict, **kwargs):
         gray = out_dict['extracted']
         
         xy = out_dict['xy']
+        edged = cv2.Canny(gray,30,200)
         
         # get the countours of the piece
-        contours, hierarchy = cv2.findContours(gray, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # find the closes point in the contour to a point
+        contour = max(contours, key=cv2.contourArea)
+        
         # get the biggest contour
         cnt = max(contours, key=cv2.contourArea)
         # get the bounding rectangle of the contour
@@ -783,7 +846,11 @@ def process_piece2(out_dict, **kwargs):
         y1 = out_dict['xy'][0][1]
         x2 = out_dict['xy'][1][0]
         y2 = out_dict['xy'][1][1]
-        show_piece_contour(contours, (x1,y1), (x2,y2))
+       
+        p1 = find_nearest_point(contour, (x1,y1))
+        p2 = find_nearest_point(contour, (x2,y2))
+        # show_piece_contour(contours, p1, p2)
+        show_contour_piece(contour, p1, p2)
 
         #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
         # if intersections is None:
