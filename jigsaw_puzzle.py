@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
-from side_extractor import process_piece1,process_piece2, plot_side_images,order_corners
+from side_extractor import process_piece1
 from ChatGPT import compare_images
 from functools import partial
 import traceback
@@ -279,7 +279,7 @@ def get_corners(piece_folder: str,df_pieces):
         if(value == 'new'):
             corners = find_corner(piece_file_name,piece_folder)
             if(len(corners) == 4):
-                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] = 'processed'
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] = 'p'
                 df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X1'].iloc[0] = corners[0][0]
                 df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y1'].iloc[0] = corners[0][1]
                 df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X2'].iloc[0] = corners[1][0]
@@ -392,12 +392,13 @@ def read_image(filename: str,folder_name: str):
 def detect_side_images(df_pieces: pd.DataFrame,pieces_folder: str,sides_folder: str):
     postprocess = partial(cv2.blur, ksize=(3, 3))
     for piece_file_name in df_pieces['piece']:
-        if(df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] == 'processed'):
+        if(df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] == 'p'):
             img = cv2.imread(join(pieces_folder, piece_file_name+".jpg"))
             out_dict = {}
             out_dict['name'] = piece_file_name
-            df_pieces = get_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
-            df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] = 'side'
+            get_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
+            df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'] = 's'
+            
     return df_pieces
 
 # function to detect side image for all pices bbased on the corners writen in df_pieces
@@ -413,24 +414,59 @@ def get_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sid
     y4 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y4'].iloc[0]
     xy_array = np.array([[x1,y1],[x2,y2],[x3,y3],[x4,y4]])
     # xy_array = out_dict['xy']
-    xy = order_corners(xy_array)
+    # xy = order_corners(xy_array)
+    xy = order_points_clockwise(xy_array)
     out_dict['xy'] = xy
+    
     gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
                              harris_block_size=5, harris_ksize=5,
                              corner_score_threshold=0.2, corner_minmax_threshold=100)
     
     
     
-    extract_edges(out_dict)
+    # extract_edges(out_dict)
     # plt.figure(figsize=(6, 6))
     # plt.title(out_dict['name'])
     # plt.imshow(out_dict['extracted'], cmap='gray')
     # plt.scatter(out_dict['xy'][:, 0], out_dict['xy'][:, 1], color='red')
     # plt.show()
-    return True
+
+
+def order_points_clockwise(pts):
+    # Initialize the list of ordered points
+    ordered_pts = [None] * 4
+    
+    # Find the center of the points
+    center = [sum(pt[0] for pt in pts) // len(pts), sum(pt[1] for pt in pts) // len(pts)]
+    
+    # Divide the points into two groups: those above the center and those below
+    above_center = []
+    below_center = []
+    for pt in pts:
+        if pt[1] < center[1]:
+            above_center.append(pt)
+        else:
+            below_center.append(pt)
+    
+    # Sort the points in each group by their x-coordinate
+    above_center = sorted(above_center, key=lambda pt: pt[0])
+    below_center = sorted(below_center, key=lambda pt: pt[0], reverse=True)
+    
+    # Assign the ordered points to the output list
+    ordered_pts[0] = above_center[0]
+    ordered_pts[1] = above_center[-1]
+    ordered_pts[2] = below_center[0]
+    ordered_pts[3] = below_center[-1]
+    
+    return ordered_pts
 
 def main():
     
+    # points = [(211, 171), (410,168), (199, 405), (453, 385)]
+    # ordered_points = order_points_clockwise(points)
+    # print(ordered_points)
+
+
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
     df_pieces = read_camera_images(page_number:= 1,camera_folder:='camera',piece_folder:='pieces',df_pieces)
@@ -440,70 +476,9 @@ def main():
     # show_image_with_corners('pieces_threshold',df_pieces)
 
     df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
+    df_pieces.to_csv('pieces.csv', index=False)
     # df_pieces.to_csv('pieces.csv', index=False)
-'''
-    # find_image_test()
-    filenames = os.listdir('my_images')
-    filenames.sort()
-    postprocess = partial(cv2.blur, ksize=(3, 3))
-    x_offset = 0
-    y_offset = 0
-    changed = False
-    df_pieces = pd.read_csv('pieces.csv')
-    df_sides = pd.read_csv('sides.csv')    
-    for filename in filenames:
-        img = cv2.imread(join('my_images', filename))
-        img = img[0:2821, 0:3985]
-        imge_size = img.shape
-        # print(f"imge_size = {imge_size}")
-        x_offset = int(imge_size[1]/7)
-        y_offset = int(imge_size[0]/5)
-        # print(f"x_offset = {x_offset} y_offset = {y_offset}")
-        #for i in range(0, 5): 
-        for i in range(0, 1): 
-            #for j in range(0, 7):
-            for j in range(0, 1):
-                window_name = os.path.splitext(filename)[0] + '_' + str(i+1) + "_" + str(j+1)
-                # if(window_name in df_pieces['piece'].unique()):
-                #     print(f"puzzle {window_name} already exists")
-                #     continue
-                start_point_x = 30 + x_offset * i
-                start_point_y = 30 + y_offset * j
-                start_point = (start_point_x, start_point_y)
-                #start_point = (10, 10)
-                end_point_x = start_point[0] + 510 
-                end_point_y = start_point[1] + 510
-                end_point = (end_point_x, end_point_y)
-                #print(f"i = {i} j = {j} start_point={start_point}, end_point={end_point}")
-                image = img[start_point_x:end_point_x, start_point_y:end_point_y]
-                image = cv2.bitwise_not(image)
-                out_dict = {}
-                out_dict['name'] = window_name
-                save_peice(image,out_dict)
-                if(puzzel_piece(image,out_dict,df_pieces,df_sides,postprocess)):
-                    extract_edges(out_dict)
-                    df_pieces,df_sides = update_dataframes(df_pieces,df_sides,out_dict)
-                    changed = True
-                side_image = out_dict['class_image'] * 255
-                # cv2.imshow(window_name, side_image) 
-                # cv2.waitKey(0)
-                cv2.imwrite("large_image.jpg", side_image)
-                print(f"puzzel piece {window_name} done")
-    # plot_images()
-    # if(changed):
-    #     df_pieces.to_csv('pieces.csv', index=False)
-    #     df_sides.to_csv('sides.csv', index=False)
-    # Creating Empty DataFrame and Storing it in variable df
-    piece_filenames = os.listdir('output_folder')
-    piece_filenames.sort()
-    for filename in piece_filenames:
-        ret = compare_images(filename,piece_filenames,"output_folder")
-        df = pd.DataFrame() 
-        df['piece'] = piece_filenames
-        df["_similarity"] = ret
-        name = os.path.splitext(filename)[0]+".csv"
-        df.to_csv(name, index=False)
-'''  
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,5 @@
+import os
+from os.path import join
 import numpy as np
 import scipy
 import scipy.ndimage as ndimage
@@ -686,15 +688,23 @@ def show_piece_contour(contour, p1, p2):
     plt.plot(piece[:, 0, 0], piece[:, 0, 1], 'r-')
     plt.show()
 
-def show_contour_piece(contour, start, end):
+def show_contour_piece(contour, filename: str, count:int, start, end):
     """Shows a piece of contour between two points."""
     contour = np.asarray(contour)
     start_idx = np.argmin(np.sum((contour - start)**2, axis=1))
     end_idx = np.argmin(np.sum((contour - end)**2, axis=1))
+    contour_size = len(contour)
+    # if end_idx < start_idx:
+    #     start_idx, end_idx = end_idx, start_idx
+    # plt.plot(contour[start_idx:end_idx+1, 0], contour[start_idx:end_idx+1, 1])
     if end_idx < start_idx:
-        start_idx, end_idx = end_idx, start_idx
-    plt.plot(contour[start_idx:end_idx+1, 0], contour[start_idx:end_idx+1, 1])
-    plt.show()
+        plt.plot(contour[start_idx:contour_size, 0], contour[start_idx:contour_size, 1])
+        plt.plot(contour[0:end_idx+1, 0], contour[0:end_idx+1, 1])
+
+    else:
+        plt.plot(contour[start_idx:end_idx+1, 0], contour[start_idx:end_idx+1, 1])
+    
+    
 
 def find_nearest_point(contour, point):
     """Finds the nearest point in a contour to a given point."""
@@ -703,6 +713,184 @@ def find_nearest_point(contour, point):
     nearest_idx = np.argmin(dists)
     nearest_point = contour[nearest_idx]
     return nearest_point     
+
+def get_max_min_x_y(points,indices):
+    # Calculate the minimum and maximum x and y values
+    minx = 100000
+    miny = 100000
+    maxx = 0
+    maxy = 0
+    for i in indices:
+        if points[i][0] < minx:
+            minx = points[i][0]
+        if points[i][0] > maxx:
+            maxx = points[i][0]
+        if points[i][1] < miny:
+            miny = points[i][1]
+        if points[i][1] > maxy:
+            maxy = points[i][1]
+
+    # maxx = maxx
+    # maxy = maxy
+    # minx = minx
+    # miny = miny
+    return minx, miny, maxx, maxy
+
+def get_side_size(minx: int,miny: int,maxx: int,maxy: int,margin: int=10):
+ 
+    if( minx > margin):
+        minx = minx - margin
+    if( miny > margin):
+        miny = miny - margin
+    return ((maxx - minx + margin), (maxy - miny+margin))
+
+'''def read_indicses_direction(points, start, end):
+    """Reads the indices of a contour in a given direction."""
+    buffer_size=len(points)
+    # Initialize the circular buffer with zeros
+    buffer = np.zeros((buffer_size, 2))
+
+    # Keep track of the index of the next point to insert into the buffer
+    index = 0
+
+    # Iterate through the points and insert them into the buffer
+    for point in points:
+        buffer[index] = point
+        index = (index + 1) % buffer_size
+
+    start_idx = np.argmin(np.sum((points - start)**2, axis=1))
+    end_idx = np.argmin(np.sum((points - end)**2, axis=1))
+    
+    # Calculate the indices of the points between p1 and p2
+    if(end_idx < start_idx):
+        start_idx, end_idx = end_idx, start_idx
+
+    indices1 = np.arange(start_idx, end_idx + 1)
+    indices2 = np.concatenate((np.arange(end_idx, buffer_size), np.arange(start_idx + 1)))
+
+    minx1,miny1,maxx1,maxy1 = get_max_min_x_y(buffer,indices1)
+    minx2,miny2,maxx2,maxy2 = get_max_min_x_y(buffer,indices2)
+
+    sizex1, sizey1 = get_side_size(minx1,miny1,maxx1,maxy1) 
+    sizex2, sizey2 = get_side_size(minx2,miny2,maxx2,maxy2)
+
+    if(sizex1 * sizey1 > sizex2 * sizey2):
+        return minx2, miny2, maxx2, maxy2,sizex2,sizey2,indices2,buffer
+    else:
+        return minx1, miny1, maxx1, maxy1,sizex1,sizey1,indices1,buffer
+    
+
+def circular_buffer(points, filename: str, count:int, start, end):
+
+    minx, miny, maxx, maxy,sizex, sizey,indices,buffer = read_indicses_direction(points, start, end)
+    
+    # Create a new image with a black background
+    image = np.zeros((sizey, sizex, 3), dtype=np.uint8)
+
+    # Draw lines between the selected points on the image
+    for i in range(len(indices) - 1):
+        pt1 = (buffer[indices[i]][0].astype(int) - minx, buffer[indices[i]][1].astype(int) - miny)
+        pt2 = (buffer[indices[i+1]][0].astype(int) - minx, buffer[indices[i+1]][1].astype(int) - miny)
+        
+        cv2.line(image, pt1, pt2, (255, 255, 255), 1)
+
+    # Save the image to disk
+    cv2.imwrite(join('sides', filename+"_"+str(count)+".jpg"), image)
+'''
+
+def read_indicses_direction(points, start, end,direction:int):
+    try:
+        """Reads the indices of a contour in a given direction."""
+        
+        buffer_size=len(points)
+
+        start_idx = np.argmin(np.sum((points - start)**2, axis=1))
+        end_idx = np.argmin(np.sum((points - end)**2, axis=1))
+        
+        # Calculate the indices of the points between p1 and p2
+        if(end_idx < start_idx):
+            start_idx, end_idx = end_idx, start_idx
+
+        indices1 = np.arange(start_idx, end_idx + 1)
+        indices2 = np.concatenate((np.arange(end_idx, buffer_size), np.arange(start_idx + 1)))
+
+        minx1,miny1,maxx1,maxy1 = get_max_min_x_y(points,indices1)
+        minx2,miny2,maxx2,maxy2 = get_max_min_x_y(points,indices2)
+
+        sizex1, sizey1 = get_side_size(minx1,miny1,maxx1,maxy1) 
+        sizex2, sizey2 = get_side_size(minx2,miny2,maxx2,maxy2)
+
+        if(sizex1 * sizey1 > sizex2 * sizey2):
+            return minx2, miny2, maxx2, maxy2,sizex2,sizey2,indices2
+        else:
+            return minx1, miny1, maxx1, maxy1,sizex1,sizey1,indices1
+    except Exception as e:
+        print(str(e))
+
+def circular_buffer(points, filename: str, count:int, start, end,direction:int=0):
+    try:
+        minx, miny, maxx, maxy,sizex, sizey,indices = read_indicses_direction(points, start, end,direction)
+        
+        # Create a new image with a black background
+        image = np.zeros((sizey, sizex, 3), dtype=np.uint8)
+
+        # Draw lines between the selected points on the image
+        for i in range(len(indices) - 1):
+            pt1 = (points[indices[i]][0] - minx, points[indices[i]][1] - miny)
+            pt2 = (points[indices[i+1]][0] - minx, points[indices[i+1]][1] - miny)
+            
+            cv2.line(image, pt1, pt2, (255, 255, 255), 1)
+
+        # Save the image to disk
+        cv2.imwrite(join('sides', filename+"_"+str(count)+".jpg"), image)
+    except Exception as e:
+        print(str(e))
+
+# function to get list of points and maximu size and save the pints in an image
+def contour_to_image(points, filename: str):
+    try:
+        # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
+        # minimum value of x and y
+        minx = min(points, key=lambda x: x[0])[0]
+        miny = min(points, key=lambda x: x[1])[1]
+        # maximum value of x and y
+        maxx = max(points, key=lambda x: x[0])[0]
+        maxy = max(points, key=lambda x: x[1])[1]
+        marg = 10
+        # size of the image
+        sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
+        # convert to int
+        # minx = minx.astype(int)
+        # miny = miny.astype(int)
+        # maxx = maxx.astype(int)
+        # maxy = maxy.astype(int)
+        # sizex = sizex.astype(int)
+        # sizey = sizey.astype(int)
+        # create a blank image
+        blank_image = np.zeros((sizey, sizex, 3), np.uint8)
+
+        # a list of points offset from the minimum value of x and y
+        # new_points = [[(point[0] - minx + marg).astype(int), (point[1] - miny + marg).astype(int)] for point in points]
+        
+        '''for pt1 in points: 
+            pt = [pt1[0] - minx + marg, pt1[1] - miny + marg]
+            cv2.circle(img=blank_image, center=(pt[0], pt[1]), radius=1, color=(255, 255, 255), thickness=-1)'''
+
+
+        # draw the contour
+        for i in range(len(points) ):
+            index1 = i % len(points)
+            index2 = (i+1) % len(points)
+            pt1 = [points[index1][0] - minx + marg, points[index1][1] - miny + marg]
+            pt2 = [points[index2][0] - minx + marg, points[index2][1] - miny + marg]
+            
+            cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
+
+        # cv2.drawContours(blank_image, new_points, -1, (255,255,255), 1)
+        cv2.imwrite(join('contours', filename +".jpg"),blank_image)
+        return blank_image
+    except Exception as e:
+        print(str(e))
 
 def process_piece1(image,out_dict, **kwargs):
     
@@ -716,195 +904,79 @@ def process_piece1(image,out_dict, **kwargs):
     
         
         gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite('gray1.png',gray1)
-
-        ret, gray = cv2.threshold(gray1, 200, 255, cv2.THRESH_BINARY_INV) 
-
-        cv2.imwrite('gray2.png',gray)
-
-       
-        ret, labels = cv2.connectedComponents(gray)
-        connected_areas = [np.count_nonzero(labels == l) for l in range(1, ret)]
-        max_area_idx = np.argmax(connected_areas) + 1
-        gray[labels != max_area_idx] = 0
-        gray = 255 - gray
-        # gray = extract_piece(gray)
-        cv2.imwrite('gray3.png',gray)
-        out_dict['extracted'] = gray.copy()
-        
+        ret, gray = cv2.threshold(gray1, 128, 255, cv2.THRESH_BINARY_INV) 
+        cv2.imwrite('gray.jpg',gray)
         xy = out_dict['xy']
         edged = cv2.Canny(gray,30,200)
+        cv2.imwrite('edged.jpg',edged)
         
         # get the countours of the piece
-        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
         # find the closes point in the contour to a point
         contour = max(contours, key=cv2.contourArea)
         contour_list = []
         for c in contour:
+            # val = c[0].tolist()
+            # if val not in contour_list:
             contour_list.append(c[0].tolist())
 
-        p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
-        p2 = find_nearest_point(contour_list, (xy[1][0],xy[1][1]))
-        p3 = find_nearest_point(contour_list, (xy[2][0],xy[2][1]))
-        p4 = find_nearest_point(contour_list, (xy[3][0],xy[3][1]))
-        
+        # save contour in a blank image
+        # blank_image = np.zeros((gray.shape[0],gray.shape[1],3), np.uint8)
+        # cv2.drawContours(blank_image, contours, -1, (255,255,255), 1)
+        # cv2.imwrite(join('contours', out_dict['name']+".jpg"),blank_image)
 
-        # show_piece_contour(contours, p1, p2)
-        show_contour_piece(contour_list, p1, p2)
-        show_contour_piece(contour_list, p2, p3)
-        show_contour_piece(contour_list, p3, p4)
-        show_contour_piece(contour_list, p4, p1)
+        new_img = contour_to_image(points=contour_list, filename=out_dict['name'])
 
-        #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
-        # if intersections is None:
-        #     raise RuntimeError('No rectangle found')
-
-        # if intersections[1, 0] == intersections[0, 0]:
-        #     rotation_angle = 90
-        # else:
-        #     rotation_angle = np.arctan2(intersections[1, 1] - intersections[0, 1], intersections[1, 0] - intersections[0, 0]) * 180 / np.pi
-        
-        # edges = gray - cv2.erode(gray, np.ones((params['edge_erode_size'], params['edge_erode_size'])))
-        
-        # # Rotate all images
-        # edges, M = rotate(edges, rotation_angle)
-        # out_dict['edges'] = edges
-       
-        # # Rotate intersection points
-        # intersections = np.array(np.round([M.dot((point[0], point[1], 1)) for point in intersections])).astype(np.int)
-
-        cv2.imwrite('edges.png', gray)
-        yb, xb = compute_barycentre(gray)
-        
-        # corners = corner_detection(edges, intersections, (xb, yb), params['corner_refine_rect_size'], show=False)
-        # corners = order_corners(corners)
-        # line_params = compute_line_params(corners)
-        # class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
-        #                                   params['shape_classification_nhs'])
-        line_params = compute_line_params(xy)
-        # color2 = (0,255,255)
-        # cv2.line(gray, (xy[0][0], xy[0][1]), (xy[1][0], xy[1][1]), color2, 2)
-        # cv2.line(gray, (xy[1][0], xy[1][1]), (xy[2][0], xy[2][1]), color2, 2)
-        # cv2.line(gray, (xy[2][0], xy[2][1]), (xy[3][0], xy[3][1]), color2, 2)
-        # cv2.line(gray, (xy[3][0], xy[3][1]), (xy[0][0], xy[0][1]), color2, 2)
-        # cv2.imshow('gray', gray)
-        # cv2.waitKey(0)
-        # detect edges of gray image
-        edges = cv2.Canny(gray, 100, 200)
-        # cv2.imshow('edges', edges)
-        # cv2.waitKey(0)
-        class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
-                                          params['shape_classification_nhs'])
-        out_dict['class_image'] = class_image
-        # cv2.imshow('class_image', class_image)
-        # cv2.waitKey(0)
-        inout = compute_inout(class_image, line_params, (xb, yb), params['inout_distance_threshold'])
-        out_dict['inout'] = inout
-        cv2.imwrite('class_image.png', class_image)
-        # side_images = create_side_images(gray, inout, corners)
-        side_images = create_side_images(gray, inout, xy)
-        out_dict['side_images'] = side_images
-
-
-        
-    except Exception as e:
-        out_dict['error'] = e
-    
-    finally:
-        return gray
-
-       
-
-def process_piece2(out_dict, **kwargs):
-    
-    params = get_default_params()
-    for key in kwargs:
-        params[key] = kwargs[key]
-    
-    # out_dict = {}
-    
-    try:
-        gray = out_dict['extracted']
-        
+        new_gray1 = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
+        new_ret, new_gray = cv2.threshold(new_gray1, 128, 255, cv2.THRESH_BINARY) 
+        cv2.imwrite('new_gray.jpg',new_gray)
         xy = out_dict['xy']
-        edged = cv2.Canny(gray,30,200)
+        new_edged = cv2.Canny(new_gray,30,200)
+        cv2.imwrite('new_edged.jpg',new_edged)
         
         # get the countours of the piece
-        contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        new_contours, new_hierarchy = cv2.findContours(new_edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
         # find the closes point in the contour to a point
-        contour = max(contours, key=cv2.contourArea)
-        
-        # get the biggest contour
-        cnt = max(contours, key=cv2.contourArea)
-        # get the bounding rectangle of the contour
-        x, y, w, h = cv2.boundingRect(cnt)
-        # get the bounding rectangle of the contour
-        rect = cv2.minAreaRect(cnt)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        x1 = out_dict['xy'][0][0]
-        y1 = out_dict['xy'][0][1]
-        x2 = out_dict['xy'][1][0]
-        y2 = out_dict['xy'][1][1]
-       
-        p1 = find_nearest_point(contour, (x1,y1))
-        p2 = find_nearest_point(contour, (x2,y2))
-        # show_piece_contour(contours, p1, p2)
-        show_contour_piece(contour, p1, p2)
+        new_contour = max(new_contours, key=cv2.contourArea)
+        new_contour_list = []
+        for c in new_contour:
+            # val = c[0].tolist()
+            # if val not in contour_list:
+            new_contour_list.append(c[0].tolist())
 
-        #intersections = get_best_fitting_rect_coords(xy, perp_angle_thresh=30)
-        # if intersections is None:
-        #     raise RuntimeError('No rectangle found')
 
-        # if intersections[1, 0] == intersections[0, 0]:
-        #     rotation_angle = 90
-        # else:
-        #     rotation_angle = np.arctan2(intersections[1, 1] - intersections[0, 1], intersections[1, 0] - intersections[0, 0]) * 180 / np.pi
-        
-        # edges = gray - cv2.erode(gray, np.ones((params['edge_erode_size'], params['edge_erode_size'])))
-        
-        # # Rotate all images
-        # edges, M = rotate(edges, rotation_angle)
-        # out_dict['edges'] = edges
-       
-        # # Rotate intersection points
-        # intersections = np.array(np.round([M.dot((point[0], point[1], 1)) for point in intersections])).astype(np.int)
+        p1 = find_nearest_point(new_contour_list, (xy[0][0],xy[0][1]))
+        p2 = find_nearest_point(new_contour_list, (xy[1][0],xy[1][1]))
+        p3 = find_nearest_point(new_contour_list, (xy[2][0],xy[2][1]))
+        p4 = find_nearest_point(new_contour_list, (xy[3][0],xy[3][1]))
 
-        cv2.imwrite('edges.png', gray)
-        yb, xb = compute_barycentre(gray)
+        circular_buffer(points=new_contour_list,\
+                    filename=out_dict['name'],\
+                    count=1, start=p1, end=p2)
+        circular_buffer(points=new_contour_list,\
+                    filename=out_dict['name'],\
+                    count=2, start=p2, end=p3)
+        circular_buffer(points=new_contour_list,\
+                    filename=out_dict['name'],\
+                    count=3, start=p3, end=p4)
+        circular_buffer(points=new_contour_list,\
+                    filename=out_dict['name'],\
+                    count=4, start=p4, end=p1)
+
         
-        # corners = corner_detection(edges, intersections, (xb, yb), params['corner_refine_rect_size'], show=False)
-        # corners = order_corners(corners)
-        # line_params = compute_line_params(corners)
-        # class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
-        #                                   params['shape_classification_nhs'])
-        line_params = compute_line_params(xy)
-        # color2 = (0,255,255)
-        # cv2.line(gray, (xy[0][0], xy[0][1]), (xy[1][0], xy[1][1]), color2, 2)
-        # cv2.line(gray, (xy[1][0], xy[1][1]), (xy[2][0], xy[2][1]), color2, 2)
-        # cv2.line(gray, (xy[2][0], xy[2][1]), (xy[3][0], xy[3][1]), color2, 2)
-        # cv2.line(gray, (xy[3][0], xy[3][1]), (xy[0][0], xy[0][1]), color2, 2)
-        # cv2.imshow('gray', gray)
-        # cv2.waitKey(0)
-        # detect edges of gray image
-        edges = cv2.Canny(gray, 100, 200)
-        # cv2.imshow('edges', edges)
-        # cv2.waitKey(0)
-        class_image = shape_classification(edges, line_params, params['shape_classification_distance_threshold'],
-                                          params['shape_classification_nhs'])
-        out_dict['class_image'] = class_image
-        # cv2.imshow('class_image', class_image)
-        # cv2.waitKey(0)
-        inout = compute_inout(class_image, line_params, (xb, yb), params['inout_distance_threshold'])
-        out_dict['inout'] = inout
-        cv2.imwrite('class_image.png', class_image)
-        # side_images = create_side_images(gray, inout, corners)
-        side_images = create_side_images(gray, inout, xy)
-        out_dict['side_images'] = side_images
+        # show_contour_piece(contour_list, out_dict['window_name'], 1, p1, p2)
+        # show_contour_piece(contour_list, out_dict['window_name'], 2, p2, p3)
+        # show_contour_piece(contour_list, out_dict['window_name'], 3, p3, p4)
+        # show_contour_piece(contour_list, out_dict['window_name'], 4, p4, p1)
+
+        
+
         
     except Exception as e:
         out_dict['error'] = e
     
     # finally:
-    #     return out_dict
-            
+    #     return gray
+
+       
+
