@@ -892,6 +892,9 @@ def contour_to_image(points, filename: str):
     except Exception as e:
         print(str(e))
 
+
+
+
 def process_piece1(image,out_dict, **kwargs):
     
     params = get_default_params()
@@ -909,9 +912,10 @@ def process_piece1(image,out_dict, **kwargs):
         xy = out_dict['xy']
         edged = cv2.Canny(gray,30,200)
         cv2.imwrite('edged.jpg',edged)
-        
+
         # get the countours of the piece
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
+        hull = cv2.convexHull(contours[0], clockwise=False)
         # find the closes point in the contour to a point
         contour = max(contours, key=cv2.contourArea)
         contour_list = []
@@ -927,7 +931,7 @@ def process_piece1(image,out_dict, **kwargs):
 
         new_img = contour_to_image(points=contour_list, filename=out_dict['name'])
 
-        new_gray1 = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
+        '''new_gray1 = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
         new_ret, new_gray = cv2.threshold(new_gray1, 128, 255, cv2.THRESH_BINARY) 
         cv2.imwrite('new_gray.jpg',new_gray)
         xy = out_dict['xy']
@@ -942,24 +946,24 @@ def process_piece1(image,out_dict, **kwargs):
         for c in new_contour:
             # val = c[0].tolist()
             # if val not in contour_list:
-            new_contour_list.append(c[0].tolist())
+            new_contour_list.append(c[0].tolist())'''
 
+        
+        p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
+        p2 = find_nearest_point(contour_list, (xy[1][0],xy[1][1]))
+        p3 = find_nearest_point(contour_list, (xy[2][0],xy[2][1]))
+        p4 = find_nearest_point(contour_list, (xy[3][0],xy[3][1]))
 
-        p1 = find_nearest_point(new_contour_list, (xy[0][0],xy[0][1]))
-        p2 = find_nearest_point(new_contour_list, (xy[1][0],xy[1][1]))
-        p3 = find_nearest_point(new_contour_list, (xy[2][0],xy[2][1]))
-        p4 = find_nearest_point(new_contour_list, (xy[3][0],xy[3][1]))
-
-        circular_buffer(points=new_contour_list,\
+        circular_buffer(points=contour_list,\
                     filename=out_dict['name'],\
                     count=1, start=p1, end=p2)
-        circular_buffer(points=new_contour_list,\
+        circular_buffer(points=contour_list,\
                     filename=out_dict['name'],\
                     count=2, start=p2, end=p3)
-        circular_buffer(points=new_contour_list,\
+        circular_buffer(points=contour_list,\
                     filename=out_dict['name'],\
                     count=3, start=p3, end=p4)
-        circular_buffer(points=new_contour_list,\
+        circular_buffer(points=contour_list,\
                     filename=out_dict['name'],\
                     count=4, start=p4, end=p1)
 

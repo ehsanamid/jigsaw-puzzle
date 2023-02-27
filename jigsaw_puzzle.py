@@ -10,6 +10,7 @@ from ChatGPT import compare_images
 from functools import partial
 import traceback
 import math
+from PIL import Image
 
 
 
@@ -459,6 +460,12 @@ def order_points_clockwise(pts):
     ordered_pts[3] = below_center[-1]
     
     return ordered_pts
+
+
+
+
+
+
 
 def main():
     
