@@ -250,60 +250,40 @@ def compute_line_params(corners):
     return [get_line_through_points(corners[i1], corners[i2]) for i1, i2 in _corner_indexes]
 
 
-def shape_classification(edges, line_params, d_threshold=500, n_hs=10):
+def shape_classification(out_dict,img,edges, line_params):
     
     # First part: we take all edge points and classify them only if their distance to one of the 4 piece
     # lines is smaller than a certain threshold. If that happens, we can be certain that the point belongs
     # to that side of the piece. If each one of the four distances is higher than the threshold, the point
     # will be classified during the second phase.
 
-    y_nonzero, x_nonzero = np.nonzero(edges)
-    distances = []
 
-    class_image = np.zeros(edges.shape, dtype='uint8')
+    class_image = np.zeros(img.shape, dtype='uint8')
     non_classified_points = []
 
-    for x_edge, y_edge in zip(x_nonzero, y_nonzero):
-        d = [distance_point_line_squared(line_param, (x_edge, y_edge)) for line_param in line_params]
-        if np.min(d) < d_threshold:
-            class_image[y_edge, x_edge] = np.argmin(d) + 1
-        else:
-            non_classified_points.append((x_edge, y_edge))
+    blank_image = []
+    blank_image.append(np.zeros(img.shape, np.uint8))
+    blank_image.append(np.zeros(img.shape, np.uint8))
+    blank_image.append(np.zeros(img.shape, np.uint8))
+    blank_image.append(np.zeros(img.shape, np.uint8))
+    filename = out_dict['name'] 
 
-    non_classified_points = np.array(non_classified_points)
-
-    # Second part: hysteresis classification
-    # Edge points that have not been classified because they are too far from all lines
-    # will be classified based on their neighborood: if the neighborhood of a point contains
-    # an already classified point, it will be classified with the same class.
-    # It's very unlikely that the neighborhood of a non classified point will contain two different
-    # classes, so we just take the first non-zero value that we find inside the neighborhood
-    # The process is repeated and at each iteration the newly classified points are removed from the ones
-    # that still need to be classified. The process is interrupted when no new point has been classified
-    # or when a maximum number of iterations has been reached (in case of a noisy points that has no neighbours).
+    for _edge in edges:
+        d = [distance_point_line_squared(line_param, _edge) for line_param in line_params]
+        ind = np.argmin(d)
+        cv2.circle(img=blank_image[ind], center=_edge, radius=0, color=(255,255,255), thickness=-1)
+        cv2.imshow(filename+"_1",blank_image[0])
+        cv2.imshow(filename+"_2",blank_image[1])
+        cv2.imshow(filename+"_3",blank_image[2])
+        cv2.imshow(filename+"_4",blank_image[3])
+               
+        
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()    
     
-    
-    map_iteration = 0
-    max_map_iterations = 50
+    for i in range(4):
+        cv2.imwrite(join('sides', filename+"_"+str(i+1)+".jpg"), blank_image[i])  
 
-    while map_iteration < max_map_iterations:
-
-        map_iteration += 1
-        classified_points_at_current_iteration = []
-
-        for idx, (x_edge, y_edge) in enumerate(non_classified_points):
-
-            neighborhood = class_image[y_edge - n_hs: y_edge + n_hs + 1, x_edge - n_hs: x_edge + n_hs + 1]
-            n_mapped = np.nonzero(neighborhood)
-            if len(n_mapped[0]) > 0:
-                ny, nx = n_mapped[0][0] - n_hs, n_mapped[1][0] - n_hs
-                class_image[y_edge, x_edge] = class_image[y_edge + ny, x_edge + nx]
-                classified_points_at_current_iteration.append(idx)
-
-        if len(non_classified_points) > 0:
-            non_classified_points = np.delete(non_classified_points, classified_points_at_current_iteration, axis=0)
-        else:
-            break
             
     return class_image
 
@@ -847,7 +827,7 @@ def circular_buffer(points, filename: str, count:int, start, end,direction:int=0
         print(str(e))
 
 # function to get list of points and maximu size and save the pints in an image
-def contour_to_image(points, filename: str):
+def contour_to_image(out_dict,points, filename: str):
     try:
         # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
         # minimum value of x and y
@@ -859,36 +839,42 @@ def contour_to_image(points, filename: str):
         marg = 10
         # size of the image
         sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
-        # convert to int
-        # minx = minx.astype(int)
-        # miny = miny.astype(int)
-        # maxx = maxx.astype(int)
-        # maxy = maxy.astype(int)
-        # sizex = sizex.astype(int)
-        # sizey = sizey.astype(int)
-        # create a blank image
+
         blank_image = np.zeros((sizey, sizex, 3), np.uint8)
 
-        # a list of points offset from the minimum value of x and y
-        # new_points = [[(point[0] - minx + marg).astype(int), (point[1] - miny + marg).astype(int)] for point in points]
-        
+         
+
         '''for pt1 in points: 
             pt = [pt1[0] - minx + marg, pt1[1] - miny + marg]
-            cv2.circle(img=blank_image, center=(pt[0], pt[1]), radius=1, color=(255, 255, 255), thickness=-1)'''
+            cv2.circle(img=blank_image, center=(pt[0], pt[1]), radius=0, color=(255, 255, 255), thickness=-1)'''
 
+        for i in range(len(out_dict['xy'])):
+            out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + marg, out_dict['xy'][i][1] - miny + marg]
+        
+        lines = []
 
+        
+        lines.append(get_line_through_points(out_dict['xy'][0],out_dict['xy'][1]))
+        lines.append(get_line_through_points(out_dict['xy'][1],out_dict['xy'][2]))
+        lines.append(get_line_through_points(out_dict['xy'][2],out_dict['xy'][3]))
+        lines.append(get_line_through_points(out_dict['xy'][3],out_dict['xy'][0]))
+
+        new_points = []
         # draw the contour
         for i in range(len(points) ):
             index1 = i % len(points)
             index2 = (i+1) % len(points)
+            
             pt1 = [points[index1][0] - minx + marg, points[index1][1] - miny + marg]
             pt2 = [points[index2][0] - minx + marg, points[index2][1] - miny + marg]
-            
+            new_points.append(pt1)
             cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
 
+        ret, gray = cv2.threshold(blank_image, 128, 255, cv2.THRESH_BINARY) 
+
         # cv2.drawContours(blank_image, new_points, -1, (255,255,255), 1)
-        cv2.imwrite(join('contours', filename +".jpg"),blank_image)
-        return blank_image
+        cv2.imwrite(join('contours', filename +".jpg"),gray)
+        return blank_image,lines,new_points
     except Exception as e:
         print(str(e))
 
@@ -915,7 +901,7 @@ def process_piece1(image,out_dict, **kwargs):
 
         # get the countours of the piece
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
-        hull = cv2.convexHull(contours[0], clockwise=False)
+        
         # find the closes point in the contour to a point
         contour = max(contours, key=cv2.contourArea)
         contour_list = []
@@ -924,32 +910,16 @@ def process_piece1(image,out_dict, **kwargs):
             # if val not in contour_list:
             contour_list.append(c[0].tolist())
 
-        # save contour in a blank image
-        # blank_image = np.zeros((gray.shape[0],gray.shape[1],3), np.uint8)
-        # cv2.drawContours(blank_image, contours, -1, (255,255,255), 1)
-        # cv2.imwrite(join('contours', out_dict['name']+".jpg"),blank_image)
-
-        new_img = contour_to_image(points=contour_list, filename=out_dict['name'])
-
-        '''new_gray1 = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
-        new_ret, new_gray = cv2.threshold(new_gray1, 128, 255, cv2.THRESH_BINARY) 
-        cv2.imwrite('new_gray.jpg',new_gray)
-        xy = out_dict['xy']
-        new_edged = cv2.Canny(new_gray,30,200)
-        cv2.imwrite('new_edged.jpg',new_edged)
         
-        # get the countours of the piece
-        new_contours, new_hierarchy = cv2.findContours(new_edged, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_KCOS)
-        # find the closes point in the contour to a point
-        new_contour = max(new_contours, key=cv2.contourArea)
-        new_contour_list = []
-        for c in new_contour:
-            # val = c[0].tolist()
-            # if val not in contour_list:
-            new_contour_list.append(c[0].tolist())'''
+
+        new_img,lines,new_points = contour_to_image(out_dict,points=contour_list, filename=out_dict['name'])
+
+        shape_classification(out_dict,new_img,new_points,lines)
+
 
         
-        p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
+        
+        '''p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
         p2 = find_nearest_point(contour_list, (xy[1][0],xy[1][1]))
         p3 = find_nearest_point(contour_list, (xy[2][0],xy[2][1]))
         p4 = find_nearest_point(contour_list, (xy[3][0],xy[3][1]))
@@ -965,14 +935,10 @@ def process_piece1(image,out_dict, **kwargs):
                     count=3, start=p3, end=p4)
         circular_buffer(points=contour_list,\
                     filename=out_dict['name'],\
-                    count=4, start=p4, end=p1)
+                    count=4, start=p4, end=p1)'''
 
         
-        # show_contour_piece(contour_list, out_dict['window_name'], 1, p1, p2)
-        # show_contour_piece(contour_list, out_dict['window_name'], 2, p2, p3)
-        # show_contour_piece(contour_list, out_dict['window_name'], 3, p3, p4)
-        # show_contour_piece(contour_list, out_dict['window_name'], 4, p4, p1)
-
+        
         
 
         
