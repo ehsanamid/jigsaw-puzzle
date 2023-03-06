@@ -4,7 +4,7 @@ from os.path import join
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from side_extractor import process_piece, plot_side_images
+from side_extractor import process_piece
 from functools import partial
 import traceback
 

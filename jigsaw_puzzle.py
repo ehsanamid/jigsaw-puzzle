@@ -100,60 +100,50 @@ def save_peice(image,out_dict):
     out_path = join('pieces', out_filename)
     cv2.imwrite(out_path, image)
 
-def update_pieces_dataframes(df_pieces,out_dict):
-    new_row = pd.DataFrame({'piece':out_dict['name'], \
-        'X1':out_dict['xy'][0][0], \
-        'Y1':out_dict['xy'][0][1], \
-        'X2':out_dict['xy'][1][0], \
-        'Y2':out_dict['xy'][1][1], \
-        'X3':out_dict['xy'][2][0], \
-        'Y3':out_dict['xy'][2][1], \
-        'X4':out_dict['xy'][3][0], \
-        'Y4':out_dict['xy'][3][1], \
-            },index=[0])
-    df_pieces = pd.concat([new_row,df_pieces.loc[:]]).reset_index(drop=True)
-    return df_pieces
 
 
-def update_sides_dataframes(df_sides,out_dict):
-    dic = {}
-    dic['side'] = out_dict['name']
-    for i, (side_image, io) in enumerate(zip(out_dict['side_images'], out_dict['inout']), start=1):
-        x = "w" + str(i)
-        y = "h" + str(i)
-        ino = "io" + str(i) 
-        dic[x] = side_image.shape[1]
-        dic[y] = side_image.shape[0]
-        out_io = 0 if io == 'in' else 1
-        dic[ino] = out_io
-    new_row = pd.DataFrame(dic,index=[0])
-    df_sides = pd.concat([new_row,df_sides.loc[:]]).reset_index(drop=True)
-    return df_sides
-
-def update_dataframes(df_pieces,df_sides,out_dict):
-    df_pieces = update_pieces_dataframes(df_pieces,out_dict)
-    df_sides = update_sides_dataframes(df_sides,out_dict)
-    return df_pieces,df_sides
 
 
-def find_image(big_image, small_image):
-    result = cv2.matchTemplate(big_image, small_image, cv2.TM_CCOEFF_NORMED)
-    _, max_val, _, max_loc = cv2.minMaxLoc(result)
-    if max_val >= 0.5:
-        return max_loc
-    else:
-        return False
+def find_similarity(big_image, small_image):
+    try:
+        similarity = []
+        for i in range(4):
+            result = cv2.matchTemplate(big_image, small_image, cv2.TM_CCOEFF_NORMED)
+            # rotate small_image 90 degrees
+            small_image = cv2.rotate(small_image, cv2.ROTATE_90_CLOCKWISE)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            similarity.append(max_val)
+        
+        # return the best match
+        return max(similarity)
+    except Exception as e:
+        print(str(e))
 
-def find_image_test():
+def find_the_best_match(df_pieces: pd.DataFrame):
     # Example usage
-    big_image = cv2.imread("large_image.jpg")
-    small_image = cv2.imread(join('sides', "IMG_001_1_1_3_out.jpg"))
-    result = find_image(big_image, small_image)
-    if result:
-        print("Small image found at position: ", result)
-    else:
-        print("Small image not found in big image")
-
+    try:
+        for side_file_name in df_pieces['piece']:
+            with open(side_file_name+"_side_similarity.csv", 'w') as file:
+                
+                temp_string = "side1,similarity1,side2,similarity2,side3,similarity3,side4,similarity4\n"
+                file.write(temp_string)
+                for piece_file_name in df_pieces['piece']:
+                    if(side_file_name == piece_file_name):
+                        continue
+                    big_image = cv2.imread(join('contours', piece_file_name + ".jpg"))  
+                    side_similarity = []
+                    temp_string = ""
+                    for i in range(1,5):
+                        small_image = cv2.imread(join('sides', side_file_name + "_" + str(i) + ".jpg"))
+                        similarity = find_similarity(big_image, small_image)
+                        side_similarity.append(similarity)
+                        temp_string += f"{piece_file_name},{similarity},"
+                    temp_string = temp_string[:-1]+"\n"
+                    file.write(temp_string)
+    except Exception as e:
+        print(str(e))
+            
+        
 # function to read image from camer folder and copy the piece in the pieces folder
 def read_camera_image(piece_file_name: str,input_filename: str,\
                         camera_folder: str,piece_folder: str,df_pieces: pd.DataFrame):
@@ -169,12 +159,16 @@ def read_camera_image(piece_file_name: str,input_filename: str,\
         'status':'new', \
         'X1':-1, \
         'Y1':-1, \
+        'IO1':-1, \
         'X2':-1, \
         'Y2':-1, \
+        'IO2':-1, \
         'X3':-1, \
         'Y3':-1, \
+        'IO3':-1, \
         'X4':-1, \
         'Y4':-1, \
+        'IO4':-1, \
             },index=[0])
     df_pieces = pd.concat([new_row,df_pieces.loc[:]]).reset_index(drop=True)
     return df_pieces
@@ -324,71 +318,7 @@ def show_image_with_corners(piece_folder: str,df_pieces):
         cv2.imshow(piece_file_name,img)
         full_key = cv2.waitKeyEx(0)
         cv2.destroyWindow(piece_file_name)
-            
 
-       
-'''if (df_pieces['piece'].eq(piece_file_name)).any():
-            row_num = df_pieces[df_pieces['piece'] == piece_file_name].index 
-            value = df_pieces.loc[row_num,['status']]
-            if(value != 'new'):
-                print(f'Piece {piece_file_name} already processed')
-                continue'''
-
-
-
-
-'''       
-    for corner in corners:
-        x, y = corner[0]
-        x, y = int(x), int(y)
-        cv2.circle(thr, (x, y), 10, (0, 255, 0), cv2.FILLED)
-
-    cv2.imshow('Harris Corners', thr)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-'''
-
-'''       
-# function to read a big picture and divide it to small pieces
-def read_image(filename: str,folder_name: str):  
-    img = cv2.imread(join(folder_name, filename))
-    img = img[0:2821, 0:3985]
-    imge_size = img.shape
-    # print(f"imge_size = {imge_size}")
-    x_offset = int(imge_size[1]/7)
-    y_offset = int(imge_size[0]/5)
-    # print(f"x_offset = {x_offset} y_offset = {y_offset}")
-    #for i in range(0, 5): 
-    for i in range(0, 1): 
-        #for j in range(0, 7):
-        for j in range(0, 1):
-            window_name = os.path.splitext(filename)[0] + '_' + str(i+1) + "_" + str(j+1)
-            # if(window_name in df_pieces['piece'].unique()):
-            #     print(f"puzzle {window_name} already exists")
-            #     continue
-            start_point_x = 30 + x_offset * i
-            start_point_y = 30 + y_offset * j
-            start_point = (start_point_x, start_point_y)
-            #start_point = (10, 10)
-            end_point_x = start_point[0] + 510 
-            end_point_y = start_point[1] + 510
-            end_point = (end_point_x, end_point_y)
-            #print(f"i = {i} j = {j} start_point={start_point}, end_point={end_point}")
-            image = img[start_point_x:end_point_x, start_point_y:end_point_y]
-            image = cv2.bitwise_not(image)
-            out_dict = {}
-            out_dict['name'] = window_name
-            save_peice(image,out_dict)
-            if(puzzel_piece(image,out_dict,df_pieces,df_sides,postprocess)):
-                extract_edges(out_dict)
-                df_pieces,df_sides = update_dataframes(df_pieces,df_sides,out_dict)
-                changed = True
-            side_image = out_dict['class_image'] * 255
-            # cv2.imshow(window_name, side_image) 
-            # cv2.waitKey(0)
-            cv2.imwrite("large_image.jpg", side_image)
-            print(f"puzzel piece {window_name} done")
-'''
 
 def detect_side_images(df_pieces: pd.DataFrame,pieces_folder: str,sides_folder: str):
     postprocess = partial(cv2.blur, ksize=(3, 3))
@@ -464,16 +394,8 @@ def order_points_clockwise(pts):
 
 
 
-
-
-
 def main():
     
-    # points = [(211, 171), (410,168), (199, 405), (453, 385)]
-    # ordered_points = order_points_clockwise(points)
-    # print(ordered_points)
-
-
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
     df_pieces = read_camera_images(page_number:= 1,camera_folder:='camera',piece_folder:='pieces',df_pieces)
@@ -484,8 +406,9 @@ def main():
 
     df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
     df_pieces.to_csv('pieces.csv', index=False)
-    # df_pieces.to_csv('pieces.csv', index=False)
 
+    # df_pieces.to_csv('pieces.csv', index=False)
+    find_the_best_match(df_pieces)
 
 if __name__ == "__main__":
     main()

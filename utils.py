@@ -7,9 +7,16 @@ def distance_point_line_squared(a_b_c : tuple, x0_y0 : tuple):
     """
     a ,b ,c = a_b_c
     x0 ,y0 = x0_y0
-    
+    return abs(a*x0 + b*y0 + c) / (a**2 + b**2)**0.5
 
-    return (a*x0 + b*y0 + c)**2 / (a**2 + b**2)
+# function to return distance between two points
+def distance(x1_y1, x2_y2):
+    """
+    Computes the distance between two points (x1, y1) and (x2, y2)
+    """
+    x1, y1 = x1_y1
+    x2, y2 = x2_y2
+    return ((x2 - x1)**2 + (y2 - y1)**2)**0.5
 
 def get_line_through_points(p0, p1):
     """

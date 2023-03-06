@@ -10,7 +10,7 @@ from functools import partial
 import cv2
 import skimage
 from sklearn.cluster import KMeans
-from utils import get_line_through_points, distance_point_line_squared, distance_point_line_signed, rotate
+from utils import get_line_through_points, distance_point_line_squared, distance_point_line_signed, rotate,distance
 
 _corner_indexes = [(0, 1), (1, 3), (3, 2), (0, 2)]
 
@@ -250,380 +250,199 @@ def compute_line_params(corners):
     return [get_line_through_points(corners[i1], corners[i2]) for i1, i2 in _corner_indexes]
 
 
-def shape_classification(out_dict,img,edges, line_params):
+def side_to_image(points, filename: str):
+    try:
+        # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
+        # minimum value of x and y
+        minx = min(points, key=lambda x: x[0])[0]
+        miny = min(points, key=lambda x: x[1])[1]
+        # maximum value of x and y
+        maxx = max(points, key=lambda x: x[0])[0]
+        maxy = max(points, key=lambda x: x[1])[1]
+        marg = 0
+        # size of the image
+        sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
+        blank_image = np.zeros((sizey, sizex, 3), np.uint8)
+        # draw the contour
+        for i in range(len(points) -1 ):
+            index1 = i 
+            index2 = (i+1) 
+            pt1 = [points[index1][0] - minx + marg, points[index1][1] - miny + marg]
+            pt2 = [points[index2][0] - minx + marg, points[index2][1] - miny + marg]
+            cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
+
+        cv2.imwrite(join('sides', filename +".jpg"),blank_image)
+
+    except Exception as e:
+        print(str(e))
+
+
+def shape_classification(out_dict,img,edges):
     
-    # First part: we take all edge points and classify them only if their distance to one of the 4 piece
-    # lines is smaller than a certain threshold. If that happens, we can be certain that the point belongs
-    # to that side of the piece. If each one of the four distances is higher than the threshold, the point
-    # will be classified during the second phase.
+    try:
+        threshhold = 30
+
+        # get the center of the xy
+        center = np.mean(out_dict['xy'],axis=0)
 
 
-    class_image = np.zeros(img.shape, dtype='uint8')
-    non_classified_points = []
-
-    blank_image = []
-    blank_image.append(np.zeros(img.shape, np.uint8))
-    blank_image.append(np.zeros(img.shape, np.uint8))
-    blank_image.append(np.zeros(img.shape, np.uint8))
-    blank_image.append(np.zeros(img.shape, np.uint8))
-    filename = out_dict['name'] 
-
-    for _edge in edges:
-        d = [distance_point_line_squared(line_param, _edge) for line_param in line_params]
-        ind = np.argmin(d)
-        cv2.circle(img=blank_image[ind], center=_edge, radius=0, color=(255,255,255), thickness=-1)
-        cv2.imshow(filename+"_1",blank_image[0])
-        cv2.imshow(filename+"_2",blank_image[1])
-        cv2.imshow(filename+"_3",blank_image[2])
-        cv2.imshow(filename+"_4",blank_image[3])
-               
-        
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()    
-    
-    for i in range(4):
-        cv2.imwrite(join('sides', filename+"_"+str(i+1)+".jpg"), blank_image[i])  
-
-            
-    return class_image
+        lines = []  
+        lines.append(get_line_through_points(out_dict['xy'][0],out_dict['xy'][1]))
+        lines.append(get_line_through_points(out_dict['xy'][1],out_dict['xy'][2]))
+        lines.append(get_line_through_points(out_dict['xy'][2],out_dict['xy'][3]))
+        lines.append(get_line_through_points(out_dict['xy'][3],out_dict['xy'][0]))
 
 
-def compute_inout(class_image, line_params, xb_yb, d_threshold=10):
-    
-    # Given the full class image, the line parameters and the coordinates of the barycenter,
-    # compute for each side if the curve of the piece goes inside (in) or outside (out).
-    # This is done by computing the mean coordinates for each class and see if the signed distance
-    # from the corners' line has the same sign of the signed distance of the barycenter. If that
-    # true, the two points lie on the same side and we have a in; otherwise we have a out.
-    # To let the points of the curve to contribute more to the mean point calculation, only the
-    # signed distances that are greater than a threshold are used.
-    
-    inout = []
-    xb = xb_yb[0]
-    yb = xb_yb[1]
-    for line_param, cl in zip(line_params, (1, 2, 3, 4)):
+        class_image = np.zeros(img.shape, dtype='uint8')
+        classified_points = []
 
-        coords = np.array([zip(*np.where(class_image == cl))])[0]
-
-        distances = np.array([distance_point_line_signed(line_param, (x0, y0)) for y0, x0 in coords])    
-        distances = distances[np.abs(distances) > d_threshold]
-        m_dist = np.mean(distances)
-
-        b_dist = distance_point_line_signed(line_param, (xb, yb))
-
-        if b_dist * m_dist > 0:
-            inout.append('in')
-        else:
-            inout.append('out')
-            
-    return inout
-
-
-def create_side_images(class_image, inout, corners):
-    
-    how_to_rotate = [(90, -90), (180, 0), (-90, 90), (0, 180)]
-    side_images = []
-
-    for cl in (1, 2, 3, 4):
-
-        side_image = np.zeros(class_image.shape, dtype='uint8')
-        side_image[class_image == cl] = cl
-
-        io = inout[cl - 1]
-        htw = how_to_rotate[cl - 1]
-        side_corners_idx = _corner_indexes[cl - 1]
-
-        htw = htw[0] if io == 'in' else htw[1]
-        # side_image_rot, M = rotate(side_image, htw)
-        side_image_rot = side_image
-
-        # side_corners = np.array(np.round([M.dot((corners[corner_idx][0], corners[corner_idx][1], 1)) 
-        #                                   for corner_idx in side_corners_idx])).astype(np.int)
-
-        # Order the corners from higher (smaller y coordinate)
-        # if side_corners[0, 1] > side_corners[1, 1]:
-        #     side_corners = side_corners[::-1]
-
-            
-        # Correct the angle on each side separately
-        # if side_corners[0, 0] != side_corners[1, 0]:
-        #     m = float(side_corners[1, 1] - side_corners[0, 1]) / (side_corners[1, 0] - side_corners[0, 0])
-        #     corners_angle = np.arctan(m) * 180 / np.pi
-        #     correction_angle = - (corners_angle / abs(corners_angle) * 90 - corners_angle)
-
-        #     side_image_rot, M = rotate(side_image_rot, correction_angle)
-
-        side_image_rot[side_image_rot <= 0.5] = 0
-        side_image_rot[side_image_rot > 0.5] = 1
-        
-        
-        nz = np.nonzero(side_image_rot)
-        min_y, max_y, min_x, max_x = np.min(nz[0]), np.max(nz[0]), np.min(nz[1]), np.max(nz[1])
-        side_image_rot = side_image_rot[min_y:max_y+1, min_x:max_x+1]
-
-        side_images.append(side_image_rot)
-            
-    return side_images
-
-
-def plot_side_images(side_images, inout):
-    
-    for cl, (side_image, io) in enumerate(zip(side_images, inout), start=1):
-
-        plt.subplot(220 + cl)
-        plt.title("{0} {1}".format(cl, io))
-        plt.imshow(cv2.dilate(side_image, (3,3)))
-
-
-def draw_lines(image, lines, color):
-
-    for rho, theta in lines:
-
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a*rho
-        y0 = b*rho
-        x1 = int(x0 + 1000*(-b))
-        y1 = int(y0 + 1000*(a))
-        x2 = int(x0 - 1000*(-b))
-        y2 = int(y0 - 1000*(a))
-
-        cv2.line(image, (x1,y1), (x2,y2), color, 2)
-
-    return image
-
-
-def cluster_lines(lines):
-    
-    # split based on angle
-    sines = np.sin(lines[:, 1])
-    ordinates = np.abs(lines[:, 0])
-    
-    kmeans_angle = KMeans(n_clusters=2).fit(sines.reshape(-1, 1))
-    ord0 = ordinates[kmeans_angle.labels_ == 0]
-    ord1 = ordinates[kmeans_angle.labels_ == 1]
-    
-    print(sines[kmeans_angle.labels_ == 0])
-    print(sines[kmeans_angle.labels_ == 1])
-    
-    # split based on ordinate
-    kmeans_lines0 = KMeans(n_clusters=2).fit(ord0.reshape(-1, 1))
-    kmeans_lines1 = KMeans(n_clusters=2).fit(ord1.reshape(-1, 1))
-    
-    count_lines0 = 0
-    count_lines1 = 0
-    
-    final_labels = []
-    for idx in range(len(lines)):
-        angle_label = kmeans_angle.labels_[idx]
-        if angle_label == 0:
-            coord_label = kmeans_lines0.labels_[count_lines0]
-            count_lines0 += 1
-            
-            if coord_label == 0:
-                final_labels.append(0)
+        for _edge in edges:
+            d = [distance_point_line_squared(line, _edge) for line in lines]
+            if np.min(d) < threshhold:
+                ind = np.argmin(d)  
+                classified_points.append([_edge[0],_edge[1],ind,-1])
             else:
-                final_labels.append(1)
-        else:
-            coord_label = kmeans_lines1.labels_[count_lines1]
-            count_lines1 += 1
-            
-            if coord_label == 0:
-                final_labels.append(2)
-            else:
-                final_labels.append(3)
-                
-    return np.array(final_labels)
-
-
-
+                classified_points.append([_edge[0],_edge[1],-1,-1])
         
-def get_corners(dst, neighborhood_size=5, score_threshold=0.3, minmax_threshold=100)-> np.array:
-    
-    """
-    Given the input Harris image (where in each pixel the Harris function is computed),
-    extract discrete corners
-    """
-    data = dst.copy()
-    data[data < score_threshold*dst.max()] = 0.
-
-    data_max = filters.maximum_filter(data, neighborhood_size)
-    maxima = (data == data_max)
-    data_min = filters.minimum_filter(data, neighborhood_size)
-    diff = ((data_max - data_min) > minmax_threshold)
-    maxima[diff == 0] = 0
-
-    labeled, num_objects = ndimage.label(maxima)
-    slices = ndimage.find_objects(labeled)
-    yx = np.array(ndimage.center_of_mass(data, labeled, range(1, num_objects+1)))
-    return yx[:, ::-1]
-
-    
-
-def get_best_fitting_rect_coords(xy, d_threshold=30, perp_angle_thresh=20, verbose=0):
-
-    """
-    Since we expect the 4 puzzle corners to be the corners of a rectangle, here we take
-    all detected Harris corners and we find the best corresponding rectangle.
-    We perform a recursive search with max depth = 2:
-    - At depth 0 we take one of the input point as the first corner of the rectangle
-    - At depth 1 we select another input point (with distance from the first point greater
-        then d_threshold) as the second point
-    - At depth 2 and 3 we take the other points. However, the lines 01-12 and 12-23 should be
-        as perpendicular as possible. If the angle formed by these lines is too much far from the
-        right angle, we discard the choice.
-    - At depth 3, if a valid candidate (4 points that form an almost perpendicular rectangle) is found,
-        we add it to the list of candidates.
-        
-    Given a list of candidate rectangles, we then select the best one by taking the candidate that maximizes
-    the function: area * Gaussian(rectangularness)
-    - area: it is the area of the candidate shape. We expect that the puzzle corners will form the maximum area
-    - rectangularness: it is the mse of the candidate shape's angles compared to a 90 degree angles. The smaller
-                        this value, the most the shape is similar toa rectangle.
-    """
-    N = len(xy)
-
-    distances = scipy.spatial.distance.cdist(xy, xy)
-    distances[distances < d_threshold] = 0
-
-    def compute_angles(xy):
-
-        angles = np.zeros((N, N))
-
-        for i in range(N):
-            for j in range(i + 1, N):
-
-                point_i, point_j = xy[i], xy[j]
-                if point_i[0] == point_j[0]:
-                    angle = 90
+        list_length = len(classified_points)
+        # check any point is classified as -1
+        while any([x[2] == -1 for x in classified_points]):
+            for i in range(list_length):
+                if classified_points[i][2] == -1:
+                    ind1 = (i + list_length - 1) % list_length
+                    ind2 = (i + 1) % list_length
+                    if classified_points[ind1][2] != -1:
+                        classified_points[i][3] = classified_points[ind1][2]
+                    elif classified_points[ind2][2] != -1:
+                        classified_points[i][3] = classified_points[ind2][2]
                 else:
-                    angle = np.arctan2(point_j[1] - point_i[1], point_j[0] - point_i[0]) * 180 / np.pi
+                    classified_points[i][3] = classified_points[i][2]
+            for i in range(list_length):
+                classified_points[i][2] = classified_points[i][3]
+                classified_points[i][3] = -1
+        blank_image = []
+        blank_image.append(np.zeros(img.shape, np.uint8))
+        blank_image.append(np.zeros(img.shape, np.uint8))
+        blank_image.append(np.zeros(img.shape, np.uint8))
+        blank_image.append(np.zeros(img.shape, np.uint8))
+        filename = out_dict['name'] 
 
-                angles[i, j] = angle
-                angles[j, i] = angle
-
-        return angles
-
-    angles = compute_angles(xy)
-    possible_rectangles = []
-
-    def search_for_possible_rectangle(idx, prev_points=[]):
-
-        curr_point = xy[idx]
-        depth = len(prev_points)
-
-        if depth == 0:
-            right_points_idx = np.nonzero(np.logical_and(xy[:, 0] > curr_point[0], distances[idx] > 0))[0]
-            
-            if verbose >= 2:
-                print ('point', idx, curr_point)
-                
-            for right_point_idx in right_points_idx:
-                search_for_possible_rectangle(right_point_idx, [idx])
-
-            if verbose >= 2:
-                print()
-                
-            return
-
-
-        last_angle = angles[idx, prev_points[-1]]
-        perp_angle = last_angle - 90
-        if perp_angle < 0:
-            perp_angle += 180
-
-        if depth in (1, 2):
-
-            if verbose >= 2:
-                print ('\t' * depth, 'point', idx, '- last angle', last_angle, '- perp angle', perp_angle)
-
-            diff0 = np.abs(angles[idx] - perp_angle) <= perp_angle_thresh
-            diff180_0 = np.abs(angles[idx] - (perp_angle + 180)) <= perp_angle_thresh
-            diff180_1 = np.abs(angles[idx] - (perp_angle - 180)) <= perp_angle_thresh
-            all_diffs = np.logical_or(diff0, np.logical_or(diff180_0, diff180_1))
-            
-            diff_to_explore = np.nonzero(np.logical_and(all_diffs, distances[idx] > 0))[0]
-
-            if verbose >= 2:
-                print ('\t' * depth, 'diff0:', np.nonzero(diff0)[0], 'diff180:', np.nonzero(diff180)[0], 'diff_to_explore:', diff_to_explore)
-
-            for dte_idx in diff_to_explore:
-                if dte_idx not in prev_points: # unlickly to happen but just to be certain
-                    next_points = prev_points[::]
-                    next_points.append(idx)
-
-                    search_for_possible_rectangle(dte_idx, next_points)
-                
-        if depth == 3:
-            angle41 = angles[idx, prev_points[0]]
-
-            diff0 = np.abs(angle41 - perp_angle) <= perp_angle_thresh
-            diff180_0 = np.abs(angle41 - (perp_angle + 180)) <= perp_angle_thresh
-            diff180_1 = np.abs(angle41 - (perp_angle - 180)) <= perp_angle_thresh
-            dist = distances[idx, prev_points[0]] > 0
-
-            if dist and (diff0 or diff180_0 or diff180_1):
-                rect_points = prev_points[::]
-                rect_points.append(idx)
-                
-                if verbose == 2:
-                    print ('We have a rectangle:', rect_points)
-
-                already_present = False
-                for possible_rectangle in possible_rectangles:
-                    if set(possible_rectangle) == set(rect_points):
-                        already_present = True
-                        break
-
-                if not already_present:
-                    possible_rectangles.append(rect_points)
-
-    if verbose >= 2:
-        print('Coords')
-        print(xy)
-        print()
-        print('Distances')
-        print(distances)
-        print()
-        print('Angles')
-        print(angles)
-        print()
-    
-    for i in range(N):
-        search_for_possible_rectangle(i)                 
-                    
-    if len(possible_rectangles) == 0:
-        return None
-
-    def PolyArea(x,y):
-        return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
-
-    areas = []
-    rectangularness = []
-    diff_angles = []
-
-    for r in possible_rectangles:
-        points = xy[r]
-        areas.append(PolyArea(points[:, 0], points[:, 1]))
-
-        mse = 0
-        da = []
-        for i1, i2, i3 in [(0, 1, 2), (1, 2, 3), (2, 3, 0), (3, 0, 1)]:
-            diff_angle = abs(angles[r[i1], r[i2]] - angles[r[i2], r[i3]])
-            da.append(abs(diff_angle - 90))
-            mse += (diff_angle - 90) ** 2
-
-        diff_angles.append(da)
-        rectangularness.append(mse)
-
-
-    areas = np.array(areas)
-    rectangularness = np.array(rectangularness)
-
-    scores = areas * scipy.stats.norm(0, 150).pdf(rectangularness)
-    best_fitting_idxs = possible_rectangles[np.argmax(scores)]
-    return xy[best_fitting_idxs]
+        for classified_point in classified_points:
+            classified_point[3] = -1
         
+        
+        list_length = len(classified_points)
+        for j in range(list_length):
+            if(( j == 0) and (classified_points[j][2] != classified_points[j+1][2]) or\
+                ( j == list_length-1) and (classified_points[j][2] != classified_points[j-1][2])):
+                classified_points[j][3]= 0
+            else:
+                if ((classified_points[j][2] != classified_points[j-1][2]) and\
+                    (classified_points[j][2] != classified_points[j+1][2])):
+                    classified_points[j][3]= 0
+            
+        # remove all rows that [3] is zero
+        classified_points = [x for x in classified_points if x[3] != 0]    
+
+
+        for i in range(4):
+            while True:
+                blocks = []
+                list_of_blocks = [] 
+                list_length = len(classified_points)
+                for j in range(list_length):
+                    if classified_points[j][2] == i:
+                        if( j == 0):
+                            start_index = j
+                        else:
+                            if classified_points[j][2] != classified_points[j-1][2]:
+                                start_index = j
+                        if( j == list_length-1):
+                            end_index = j
+                            blocks.append([start_index,end_index])
+                        else:
+                            if classified_points[j][2] != classified_points[j+1][2]:
+                                end_index = j
+                                blocks.append([start_index,end_index])
+                                
+                
+                # list_of_blocks.append(blocks)
+                _point = []
+                if(len(blocks)>1):
+                    block1 = blocks[0]
+                    block2 = blocks[1]
+                    start_ind1 = block1[0]
+                    end_ind1 = block1[1]
+                    start_ind2 = block2[0]
+                    end_ind2 = block2[1]
+                    start_point1 = (classified_points[start_ind1][0],classified_points[start_ind1][1])
+                    start_point2 = (classified_points[start_ind2][0],classified_points[start_ind2][1])
+                    end_point1 = (classified_points[end_ind1][0],classified_points[end_ind1][1])
+                    end_point2 = (classified_points[end_ind2][0],classified_points[end_ind2][1])
+
+                    d1 = distance(start_point1,end_point2)
+                    d2 = distance(start_point2,end_point1)
+                    
+                    if(d1<d2):
+                        _point = classified_points[block2[0]:block2[1]+1]
+                        _point += classified_points[block1[0]:block1[1]+1]
+                        _point += classified_points[0:block1[0]]
+                        _point += classified_points[block1[1]+1:block2[0]]
+                        if(block2[1]+1 < list_length):
+                            _point += classified_points[block2[1]+1:list_length]
+                    else:
+                        _point = classified_points[block1[0]:block1[1]+1]
+                        _point += classified_points[block2[0]:block2[1]+1]
+                        _point += classified_points[0:block1[0]]
+                        _point += classified_points[block1[1]+1:block2[0]]
+                        if(block2[1]+1 < list_length):
+                            _point += classified_points[block2[1]+1:list_length]
+                    classified_points = _point
+                else:
+                    # _point = classified_points[blocks[0][0]:blocks[0][1]+1]
+                    break
+
+        points = []
+
+        points.append([[x[0],x[1]] for x in classified_points if x[2] == 0])
+        points.append([[x[0],x[1]] for x in classified_points if x[2] == 1])
+        points.append([[x[0],x[1]] for x in classified_points if x[2] == 2])
+        points.append([[x[0],x[1]] for x in classified_points if x[2] == 3])
+
+        for i in range(4):
+            side_to_image(points[i], filename+"_"+str(i+1))
+
+        # for i in range(4):
+        #     for j in range(len(points[i])-1):
+        #         pt1 = (points[i][j][0],points[i][j][1])
+        #         pt2 = (points[i][j+1][0],points[i][j+1][1])
+        #         cv2.line(blank_image[i], pt1, pt2, (255,255,255), 1)
+        #         cv2.imshow(filename+"_"+str(i+1),blank_image[i])
+            
+        
+            
+                
+            
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()    
+        
+        # for i in range(4):
+        #     cv2.imwrite(join('sides', filename+"_"+str(i+1)+".jpg"), blank_image[i])  
+
+                
+        # return class_image
+    except Exception as e:
+        print(str(e))
+
+
+
+
+
+
+        
+    
+
+  
 
 ####################################################################################################################
     
@@ -778,53 +597,53 @@ def circular_buffer(points, filename: str, count:int, start, end):
     cv2.imwrite(join('sides', filename+"_"+str(count)+".jpg"), image)
 '''
 
-def read_indicses_direction(points, start, end,direction:int):
-    try:
-        """Reads the indices of a contour in a given direction."""
+# def read_indicses_direction(points, start, end,direction:int):
+#     try:
+#         """Reads the indices of a contour in a given direction."""
         
-        buffer_size=len(points)
+#         buffer_size=len(points)
 
-        start_idx = np.argmin(np.sum((points - start)**2, axis=1))
-        end_idx = np.argmin(np.sum((points - end)**2, axis=1))
+#         start_idx = np.argmin(np.sum((points - start)**2, axis=1))
+#         end_idx = np.argmin(np.sum((points - end)**2, axis=1))
         
-        # Calculate the indices of the points between p1 and p2
-        if(end_idx < start_idx):
-            start_idx, end_idx = end_idx, start_idx
+#         # Calculate the indices of the points between p1 and p2
+#         if(end_idx < start_idx):
+#             start_idx, end_idx = end_idx, start_idx
 
-        indices1 = np.arange(start_idx, end_idx + 1)
-        indices2 = np.concatenate((np.arange(end_idx, buffer_size), np.arange(start_idx + 1)))
+#         indices1 = np.arange(start_idx, end_idx + 1)
+#         indices2 = np.concatenate((np.arange(end_idx, buffer_size), np.arange(start_idx + 1)))
 
-        minx1,miny1,maxx1,maxy1 = get_max_min_x_y(points,indices1)
-        minx2,miny2,maxx2,maxy2 = get_max_min_x_y(points,indices2)
+#         minx1,miny1,maxx1,maxy1 = get_max_min_x_y(points,indices1)
+#         minx2,miny2,maxx2,maxy2 = get_max_min_x_y(points,indices2)
 
-        sizex1, sizey1 = get_side_size(minx1,miny1,maxx1,maxy1) 
-        sizex2, sizey2 = get_side_size(minx2,miny2,maxx2,maxy2)
+#         sizex1, sizey1 = get_side_size(minx1,miny1,maxx1,maxy1) 
+#         sizex2, sizey2 = get_side_size(minx2,miny2,maxx2,maxy2)
 
-        if(sizex1 * sizey1 > sizex2 * sizey2):
-            return minx2, miny2, maxx2, maxy2,sizex2,sizey2,indices2
-        else:
-            return minx1, miny1, maxx1, maxy1,sizex1,sizey1,indices1
-    except Exception as e:
-        print(str(e))
+#         if(sizex1 * sizey1 > sizex2 * sizey2):
+#             return minx2, miny2, maxx2, maxy2,sizex2,sizey2,indices2
+#         else:
+#             return minx1, miny1, maxx1, maxy1,sizex1,sizey1,indices1
+#     except Exception as e:
+#         print(str(e))
 
-def circular_buffer(points, filename: str, count:int, start, end,direction:int=0):
-    try:
-        minx, miny, maxx, maxy,sizex, sizey,indices = read_indicses_direction(points, start, end,direction)
+# def circular_buffer(points, filename: str, count:int, start, end,direction:int=0):
+#     try:
+#         minx, miny, maxx, maxy,sizex, sizey,indices = read_indicses_direction(points, start, end,direction)
         
-        # Create a new image with a black background
-        image = np.zeros((sizey, sizex, 3), dtype=np.uint8)
+#         # Create a new image with a black background
+#         image = np.zeros((sizey, sizex, 3), dtype=np.uint8)
 
-        # Draw lines between the selected points on the image
-        for i in range(len(indices) - 1):
-            pt1 = (points[indices[i]][0] - minx, points[indices[i]][1] - miny)
-            pt2 = (points[indices[i+1]][0] - minx, points[indices[i+1]][1] - miny)
+#         # Draw lines between the selected points on the image
+#         for i in range(len(indices) - 1):
+#             pt1 = (points[indices[i]][0] - minx, points[indices[i]][1] - miny)
+#             pt2 = (points[indices[i+1]][0] - minx, points[indices[i+1]][1] - miny)
             
-            cv2.line(image, pt1, pt2, (255, 255, 255), 1)
+#             cv2.line(image, pt1, pt2, (255, 255, 255), 1)
 
-        # Save the image to disk
-        cv2.imwrite(join('sides', filename+"_"+str(count)+".jpg"), image)
-    except Exception as e:
-        print(str(e))
+#         # Save the image to disk
+#         cv2.imwrite(join('sides', filename+"_"+str(count)+".jpg"), image)
+#     except Exception as e:
+#         print(str(e))
 
 # function to get list of points and maximu size and save the pints in an image
 def contour_to_image(out_dict,points, filename: str):
@@ -836,9 +655,9 @@ def contour_to_image(out_dict,points, filename: str):
         # maximum value of x and y
         maxx = max(points, key=lambda x: x[0])[0]
         maxy = max(points, key=lambda x: x[1])[1]
-        marg = 10
+        margin = 50
         # size of the image
-        sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
+        sizex, sizey = ((maxx - minx + margin*2), (maxy - miny+margin*2))
 
         blank_image = np.zeros((sizey, sizex, 3), np.uint8)
 
@@ -849,49 +668,48 @@ def contour_to_image(out_dict,points, filename: str):
             cv2.circle(img=blank_image, center=(pt[0], pt[1]), radius=0, color=(255, 255, 255), thickness=-1)'''
 
         for i in range(len(out_dict['xy'])):
-            out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + marg, out_dict['xy'][i][1] - miny + marg]
+            out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + margin, out_dict['xy'][i][1] - miny + margin]
         
-        lines = []
+        # lines = []
 
         
-        lines.append(get_line_through_points(out_dict['xy'][0],out_dict['xy'][1]))
-        lines.append(get_line_through_points(out_dict['xy'][1],out_dict['xy'][2]))
-        lines.append(get_line_through_points(out_dict['xy'][2],out_dict['xy'][3]))
-        lines.append(get_line_through_points(out_dict['xy'][3],out_dict['xy'][0]))
+        # lines.append(get_line_through_points(out_dict['xy'][0],out_dict['xy'][1]))
+        # lines.append(get_line_through_points(out_dict['xy'][1],out_dict['xy'][2]))
+        # lines.append(get_line_through_points(out_dict['xy'][2],out_dict['xy'][3]))
+        # lines.append(get_line_through_points(out_dict['xy'][3],out_dict['xy'][0]))
 
-        new_points = []
-        # draw the contour
-        for i in range(len(points) ):
-            index1 = i % len(points)
-            index2 = (i+1) % len(points)
+
+        with open(filename+".csv", 'w') as file:
+            for i in range(4):
+                file.write(f"{out_dict['xy'][i][0]}, {out_dict['xy'][i][1]}\n")
             
-            pt1 = [points[index1][0] - minx + marg, points[index1][1] - miny + marg]
-            pt2 = [points[index2][0] - minx + marg, points[index2][1] - miny + marg]
-            new_points.append(pt1)
-            cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
+            # for i in range(4):
+            #     file.write(f"{lines[i][0]}, {lines[i][1]}, {lines[i][2]}\n")
+            new_points = []
+            # draw the contour
+            for i in range(len(points) ):
+                index1 = i % len(points)
+                index2 = (i+1) % len(points)
+                
+                pt1 = [points[index1][0] - minx + margin, points[index1][1] - miny + margin]
+                pt2 = [points[index2][0] - minx + margin, points[index2][1] - miny + margin]
+                file.write(f"{pt1[0]}, {pt1[1]}\n")
+                new_points.append(pt1)
+                cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
 
         ret, gray = cv2.threshold(blank_image, 128, 255, cv2.THRESH_BINARY) 
 
         # cv2.drawContours(blank_image, new_points, -1, (255,255,255), 1)
         cv2.imwrite(join('contours', filename +".jpg"),gray)
-        return blank_image,lines,new_points
+        return blank_image,new_points
     except Exception as e:
         print(str(e))
 
 
 
 
-def process_piece1(image,out_dict, **kwargs):
-    
-    params = get_default_params()
-    for key in kwargs:
-        params[key] = kwargs[key]
-    
-    # out_dict = {}
-    
+def process_piece1(image,out_dict):
     try:
-    
-        
         gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, gray = cv2.threshold(gray1, 128, 255, cv2.THRESH_BINARY_INV) 
         cv2.imwrite('gray.jpg',gray)
@@ -912,9 +730,9 @@ def process_piece1(image,out_dict, **kwargs):
 
         
 
-        new_img,lines,new_points = contour_to_image(out_dict,points=contour_list, filename=out_dict['name'])
+        new_img,new_points = contour_to_image(out_dict,points=contour_list, filename=out_dict['name'])
 
-        shape_classification(out_dict,new_img,new_points,lines)
+        shape_classification(out_dict,new_img,new_points)
 
 
         
@@ -949,4 +767,9 @@ def process_piece1(image,out_dict, **kwargs):
     #     return gray
 
        
-
+# function to check if a point is between two other points
+def is_between(p1, p2, p3):
+    # check if the point is between the two other points
+    # if the point is between the two other points, then the distance between the point and the two other points
+    # should be equal to the distance between the two other points
+    return distance(p1, p2) + distance(p2, p3) == distance(p1, p3)
