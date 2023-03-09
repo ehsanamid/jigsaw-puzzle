@@ -10,7 +10,7 @@ from functools import partial
 import cv2
 import skimage
 from sklearn.cluster import KMeans
-from utils import get_line_through_points, distance_point_line_squared, distance_point_line_signed, rotate,distance
+from utils import get_line_through_points, distance_point_line_squared, distance_point_line_signed, rotate,distance,intersection_point
 
 _corner_indexes = [(0, 1), (1, 3), (3, 2), (0, 2)]
 
@@ -277,6 +277,9 @@ def side_to_image(points, filename: str):
         print(str(e))
 
 
+
+
+
 def shape_classification(out_dict,img,edges):
     
     try:
@@ -408,7 +411,32 @@ def shape_classification(out_dict,img,edges):
         points.append([[x[0],x[1]] for x in classified_points if x[2] == 1])
         points.append([[x[0],x[1]] for x in classified_points if x[2] == 2])
         points.append([[x[0],x[1]] for x in classified_points if x[2] == 3])
-
+        in_out = []
+        for i in range(4):
+            head_point = 0
+            head_point_index = -1
+            
+            for j in range(len(points[i])):
+                # find the maximum distance between points in points[i] and lines[i]
+                
+                d = distance_point_line_squared(lines[i], points[i][j])
+                if (d > head_point):
+                    head_point = d
+                    head_point_index = j
+            corner1 = out_dict['xy'][i]
+            corner2 = out_dict['xy'][(i+1)%4]    
+            pt1 = intersection_point(line1_point1=corner1,\
+                                    line1_point2=corner2,\
+                                    line2_point1=points[i][head_point_index],\
+                                    line2_point2=center)
+            d1 = distance(pt1,center)
+            d2 = distance(points[i][head_point_index],center)
+            if(d1<d2):
+                in_out.append(1)
+            else:
+                in_out.append(0)
+                
+        out_dict['in_out'] = in_out
         for i in range(4):
             side_to_image(points[i], filename+"_"+str(i+1))
 
@@ -708,7 +736,7 @@ def contour_to_image(out_dict,points, filename: str):
 
 
 
-def process_piece1(image,out_dict):
+def process_piece1(image,out_dict,df_pieces):
     try:
         gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         ret, gray = cv2.threshold(gray1, 128, 255, cv2.THRESH_BINARY_INV) 
@@ -734,6 +762,7 @@ def process_piece1(image,out_dict):
 
         shape_classification(out_dict,new_img,new_points)
 
+       
 
         
         

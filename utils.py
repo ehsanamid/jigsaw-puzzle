@@ -54,3 +54,23 @@ def rotate(image, degrees):
     M = cv2.getRotationMatrix2D((cols/2,rows/2), degrees, 1)
     
     return cv2.warpAffine(image,M,(cols,rows)), M
+
+def intersection_point(line1_point1, line1_point2, line2_point1, line2_point2):
+    # extract x and y coordinates of the four points
+    x1, y1 = line1_point1
+    x2, y2 = line1_point2
+    x3, y3 = line2_point1
+    x4, y4 = line2_point2
+    
+    # calculate the slopes and y-intercepts of each line
+    slope1 = (y2 - y1) / (x2 - x1)
+    y_int1 = y1 - slope1 * x1
+    
+    slope2 = (y4 - y3) / (x4 - x3)
+    y_int2 = y3 - slope2 * x3
+    
+    # calculate the intersection point
+    x_int = (y_int2 - y_int1) / (slope1 - slope2)
+    y_int = slope1 * x_int + y_int1
+    
+    return (x_int, y_int)

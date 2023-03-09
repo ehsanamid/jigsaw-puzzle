@@ -103,7 +103,7 @@ def save_peice(image,out_dict):
 
 
 
-
+'''
 def find_similarity(big_image, small_image):
     try:
         similarity = []
@@ -118,6 +118,46 @@ def find_similarity(big_image, small_image):
         return max(similarity)
     except Exception as e:
         print(str(e))
+'''
+def find_similarity(big_image, small_image):
+    try:
+        similarity = []
+        for i in range(4):
+
+            result = match_contour(big_image=big_image, small_image= small_image)
+            # rotate small_image 90 degrees
+            small_image = cv2.rotate(small_image, cv2.ROTATE_90_CLOCKWISE)
+
+            similarity.append(result)
+        
+        # return the best match
+        return min(similarity)
+    except Exception as e:
+        print(str(e))
+
+def match_contour(small_image, big_image):
+    # Convert images to grayscale
+    small_gray = cv2.cvtColor(small_image, cv2.COLOR_BGR2GRAY)
+    big_gray = cv2.cvtColor(big_image, cv2.COLOR_BGR2GRAY)
+
+    # Find contours in both images
+    small_contours, _ = cv2.findContours(small_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    big_contours, _ = cv2.findContours(big_gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    best_match = 10000000
+    # Loop over the contours in the small image
+    for small_cnt in small_contours:
+        # Loop over the contours in the big image
+        for big_cnt in big_contours:
+            # Match the contours using a matchShapes function
+            match = cv2.matchShapes(small_cnt, big_cnt, cv2.CONTOURS_MATCH_I1, 0)
+
+            # If the match is good enough (a threshold of 0.1 is used here), return the big contour
+            if match < best_match:
+                best_match = match
+
+    # If no match is found, return None
+    return best_match
+
 
 def find_the_best_match(df_pieces: pd.DataFrame):
     # Example usage
@@ -321,19 +361,26 @@ def show_image_with_corners(piece_folder: str,df_pieces):
 
 
 def detect_side_images(df_pieces: pd.DataFrame,pieces_folder: str,sides_folder: str):
-    postprocess = partial(cv2.blur, ksize=(3, 3))
-    for piece_file_name in df_pieces['piece']:
-        if(df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] == 'p'):
-            img = cv2.imread(join(pieces_folder, piece_file_name+".jpg"))
-            out_dict = {}
-            out_dict['name'] = piece_file_name
-            get_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder,postprocess)
-            df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'] = 's'
-            
-    return df_pieces
+    try:
+
+        for piece_file_name in df_pieces['piece']:
+            if(df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'].iloc[0] == 'p'):
+                img = cv2.imread(join(pieces_folder, piece_file_name+".jpg"))
+                out_dict = {}
+                out_dict['name'] = piece_file_name
+                get_side_image(img,out_dict,df_pieces,piece_file_name,sides_folder)
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'status'] = 's'
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'IO1'] = out_dict['in_out'][0]
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'IO2'] = out_dict['in_out'][1]
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'IO3'] = out_dict['in_out'][2]
+                df_pieces.loc[df_pieces['piece'] == piece_file_name, 'IO4'] = out_dict['in_out'][3]
+                
+        return df_pieces
+    except Exception as e:
+        out_dict['error'] = e
 
 # function to detect side image for all pices bbased on the corners writen in df_pieces
-def get_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sides_folder: str,postprocess):
+def get_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sides_folder: str):
     
     x1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'X1'].iloc[0]
     y1 = df_pieces.loc[df_pieces['piece'] == piece_file_name, 'Y1'].iloc[0]
@@ -349,9 +396,8 @@ def get_side_image(img,out_dict,df_pieces: pd.DataFrame,piece_file_name: str,sid
     xy = order_points_clockwise(xy_array)
     out_dict['xy'] = xy
     
-    gray = process_piece1(img,out_dict=out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
-                             harris_block_size=5, harris_ksize=5,
-                             corner_score_threshold=0.2, corner_minmax_threshold=100)
+    gray = process_piece1(image=img,out_dict=out_dict,df_pieces=df_pieces)
+    
     
     
     
