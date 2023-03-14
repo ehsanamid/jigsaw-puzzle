@@ -72,6 +72,35 @@ def get_geometry(points):
     angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
     # convert the angle to degree
     angle = np.degrees(angle)
+    # get the maximum x value
+    max_x = max(points, key=lambda x: x[0])[0]
+
+    for i in range(max_x):
+        # return index of points that have x value equal to i
+        idx = [j for j, x in enumerate(points) if x[0] == i]
+        # if there is more than one point with x value equal to i
+        if len(idx) > 1:
+            for j in range(len(idx)-1):
+                # get the distance between the two points
+                dist = distance(points[idx[j]], points[idx[j+1]])
+                # if the distance is less than 10
+                if dist < 10:
+                    # remove the point with minimum y value
+                    points.pop(idx[j])
+                    # break the loop
+                    break
+            # get the index of the point with maximum y value
+            max_y_idx = max(idx, key=lambda x: points[x][1])
+            # get the index of the point with minimum y value
+            min_y_idx = min(idx, key=lambda x: points[x][1])
+            # get the distance between the two points
+            dist = distance(points[max_y_idx], points[min_y_idx])
+            # if the distance is less than 10
+            if dist < 10:
+                # remove the point with minimum y value
+                points.pop(min_y_idx)
+                # break the loop
+                break
     # get points with maximum y and the index of the point
     max_y = max(points, key=lambda x: x[1])
     max_y_idx = points.index(max_y)
@@ -116,7 +145,8 @@ def side_to_image(out_dict: dict, idx: int,points: list, filename: str):
         
         # return geometry of the points
         geometry = get_geometry(points)
-
+        # add the geometry to the dictionary
+        out_dict['geometry'].append(geometry)        
         # add "in" or "out" to the file name based on orientation
         if out_dict['in_out'][idx] == 0:
             filename = filename + "_in"
@@ -290,6 +320,7 @@ def shape_classification(out_dict,img,edges):
                 in_out.append(0)
                 
         out_dict['in_out'] = in_out
+        out_dict['geometry'] = []
         for i,points in enumerate(four_sides_points):
             side_to_image(out_dict,i,points, filename+"_"+str(i+1))
 
