@@ -64,52 +64,54 @@ def rotate_points(points, angle, pivot):
     return result
 # return geometry of the points
 def get_geometry(points):
-    # get the center of the xy
-    center = np.mean(points, axis=0)
-    # get the distance between the center and the first point
-    dist = distance(points[0], center)
-    # get the angle between the center and the first point
-    angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
-    # convert the angle to degree
-    angle = np.degrees(angle)
-    # get the maximum x value
-    max_x = max(points, key=lambda x: x[0])[0]
+    try:
+        # get the center of the xy
+        center = np.mean(points, axis=0)
+        # get the distance between the center and the first point
+        dist = distance(points[0], center)
+        # get the angle between the center and the first point
+        angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
+        # convert the angle to degree
+        angle = np.degrees(angle)
+        # get the maximum x value
+        max_x = max(points, key=lambda x: x[0])[0]
+        critical_points = []
+        for i in range(max_x):
+            # return index of points that have x value equal to i
+            idx = [j for j, x in enumerate(points) if x[0] == i]
+            # if there is more than one point with x value equal to i
+            blocks = []
+            start = 0
+            segment_len = 0
+            if len(idx) > 1:
+                start = idx[0]
+                segment_len = 0
+                for j in range(len(idx)-1):
+                    # get the distance between the two points
+                    dist = distance(points[idx[j]], points[idx[j+1]])
+                    
+                    if dist < 2:
+                        segment_len += 1
+                    else:
+                        blocks.append([start, segment_len])
+                        start = idx[j+1]
+                        segment_len = 0
+                blocks.append([start, segment_len])        
+            if (len(blocks) ==2):
+                critical_points.append(blocks)
+            
+                
+        # get points with maximum y and the index of the point
+        max_y = max(points, key=lambda x: x[1])
+        max_y_idx = points.index(max_y)
+        count_max_y = points.count(max_y)
+        
 
-    for i in range(max_x):
-        # return index of points that have x value equal to i
-        idx = [j for j, x in enumerate(points) if x[0] == i]
-        # if there is more than one point with x value equal to i
-        if len(idx) > 1:
-            for j in range(len(idx)-1):
-                # get the distance between the two points
-                dist = distance(points[idx[j]], points[idx[j+1]])
-                # if the distance is less than 10
-                if dist < 10:
-                    # remove the point with minimum y value
-                    points.pop(idx[j])
-                    # break the loop
-                    break
-            # get the index of the point with maximum y value
-            max_y_idx = max(idx, key=lambda x: points[x][1])
-            # get the index of the point with minimum y value
-            min_y_idx = min(idx, key=lambda x: points[x][1])
-            # get the distance between the two points
-            dist = distance(points[max_y_idx], points[min_y_idx])
-            # if the distance is less than 10
-            if dist < 10:
-                # remove the point with minimum y value
-                points.pop(min_y_idx)
-                # break the loop
-                break
-    # get points with maximum y and the index of the point
-    max_y = max(points, key=lambda x: x[1])
-    max_y_idx = points.index(max_y)
-    count_max_y = points.count(max_y)
-    
 
-
-    # return the geometry
-    return (center, dist, angle,max_y[0],count_max_y)
+        # return the geometry
+        return (center, dist, angle,max_y[0],count_max_y)
+    except Exception as e:
+        print(str(e))
 
 def side_to_image(out_dict: dict, idx: int,points: list, filename: str):
     try:
@@ -143,10 +145,8 @@ def side_to_image(out_dict: dict, idx: int,points: list, filename: str):
             pt2 = points[i+1]
             cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
         
-        # return geometry of the points
-        geometry = get_geometry(points)
-        # add the geometry to the dictionary
-        out_dict['geometry'].append(geometry)        
+        
+            
         # add "in" or "out" to the file name based on orientation
         if out_dict['in_out'][idx] == 0:
             filename = filename + "_in"
@@ -674,11 +674,30 @@ def process_piece1(image,out_dict,df_pieces):
     # finally:
     #     return gray
 
-       
-# function to check if a point is between two other points
-def is_between(p1, p2, p3):
-    # check if the point is between the two other points
-    # if the point is between the two other points, then the distance 
-    # between the point and the two other points
-    # should be equal to the distance between the two other points
-    return distance(p1, p2) + distance(p2, p3) == distance(p1, p3)
+
+
+
+def find_white_pixels(img_path):
+    # Read the image
+    img = cv2.imread(img_path)
+
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Threshold to get white pixels
+    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
+
+    # Find white pixel coordinates
+    white_pixels = np.where(thresh == 255)
+    coords = [[x, y] for x, y in zip(white_pixels[1], white_pixels[0])] # reverse coordinates to match (x,y) format
+# Sort coordinates based on x and y
+    sorted_coords = sorted(coords, key=lambda c: (c[0], c[1]))
+
+    return sorted_coords
+
+
+def get_image_geometry(filename: str):
+    points = find_white_pixels(img_path = filename)
+    # return geometry of the points
+    geometry = get_geometry(points)
+    return geometry

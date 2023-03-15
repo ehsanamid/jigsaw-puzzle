@@ -4,7 +4,7 @@ from os.path import join
 import numpy as np
 import pandas as pd
 import cv2
-from side_extractor import process_piece1
+from side_extractor import process_piece1,get_image_geometry
 import math
 
 
@@ -311,7 +311,32 @@ def find_the_best_matchs():
     except Exception as e:
         print(str(e))
             
-        
+
+def find_geometries():
+    # Example usage
+    try:
+        file_names = os.listdir('sides')
+        file_names.sort()
+        with open("geometry.csv", 'w') as file:
+            for file_name in file_names:
+                side_name = file_name.split(".")[0]
+                # remove "_in" or "_out" from side_name
+                if(side_name.endswith("_in")):
+                    s_name = side_name[:-3]
+                    s_orientation = 0
+                elif(side_name.endswith("_out")):
+                    s_name = side_name[:-4]
+                    s_orientation = 1
+                geometry = get_image_geometry(join('sides', file_name))
+                    
+
+                # temp_string = temp_string[:-1]+"\n"
+                # file.write(temp_string)
+    except Exception as e:
+        print(str(e))
+
+
+
 # function to read image from camer folder and copy the piece in the pieces folder
 def read_camera_image(piece_file_name: str,input_filename: str,\
                         camera_folder: str,piece_folder: str,df_pieces: pd.DataFrame):
@@ -584,12 +609,15 @@ def main():
     # show_image_with_corners('pieces_threshold',df_pieces)
 
     df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
-    # df_pieces.to_csv('pieces.csv', index=False)
 
+    df_pieces.to_csv('pieces.csv', index=False)
+    find_geometries()
+    
+    # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
     
     
-    # find_the_best_matchs()
+    find_the_best_matchs()
 
 if __name__ == "__main__":
     main()
