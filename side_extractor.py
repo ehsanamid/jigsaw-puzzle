@@ -65,16 +65,52 @@ def rotate_points(points, angle, pivot):
 # return geometry of the points
 def get_geometry(points):
     try:
+        geometry = []
+
         # get the center of the xy
         center = np.mean(points, axis=0)
+        # add the center to the geometry as two float values
+        geometry.append(center[0])
+        geometry.append(center[1])
+        
         # get the distance between the center and the first point
         dist = distance(points[0], center)
+        geometry.append(dist)
         # get the angle between the center and the first point
         angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
         # convert the angle to degree
         angle = np.degrees(angle)
+        geometry.append(angle)
+         # get the angle between the center and the last point
+        angle = np.arctan2(points[-1][1] - center[1], points[-1][0] - center[0])
+        # convert the angle to degree
+        angle = np.degrees(angle)
+        geometry.append(angle)
+
         # get the maximum x value
         max_x = max(points, key=lambda x: x[0])[0]
+        geometry.append(max_x.astype(float))
+        
+        # get points with maximum y and the index of the point
+        max_y = max(points, key=lambda x: x[1])
+        geometry.append(max_y[1].astype(float))
+
+        # return index of points that have y value equal to max_y
+        idx = [j for j, x in enumerate(points) if x[1] == max_y[1]]
+
+        # index of the first point in idx
+        max_y_idx1 =idx[0]
+        X1 = points[max_y_idx1][0].astype(float)
+        geometry.append(X1)
+
+        # index of the last point in idx
+        max_y_idx2 =idx[-1]
+        X2 = points[max_y_idx2][0].astype(float)
+        geometry.append(X2)
+        # get the distance between the two points
+        dist = X2 - X1
+        geometry.append(dist)
+        
         critical_points = []
         for i in range(max_x):
             # return index of points that have x value equal to i
@@ -88,7 +124,7 @@ def get_geometry(points):
                 segment_len = 0
                 for j in range(len(idx)-1):
                     # get the distance between the two points
-                    dist = distance(points[idx[j]], points[idx[j+1]])
+                    dist = points[idx[j+1]][1] - points[idx[j]][1]
                     
                     if dist < 2:
                         segment_len += 1
@@ -100,16 +136,20 @@ def get_geometry(points):
             if (len(blocks) ==2):
                 critical_points.append(blocks)
             
-                
-        # get points with maximum y and the index of the point
-        max_y = max(points, key=lambda x: x[1])
-        max_y_idx = points.index(max_y)
-        count_max_y = points.count(max_y)
-        
-
+        for blocks in critical_points:
+            for block in blocks:
+                start_idx = block[0]
+                block_len = block[1]
+                X1 = points[start_idx][0].astype(float)
+                Y1 = points[start_idx][1].astype(float)
+                Y2 = points[start_idx + block_len][1].astype(float)
+                geometry.append(X1)
+                geometry.append(Y1)
+                geometry.append(Y2)
+                geometry.append(Y2 - Y1)        
 
         # return the geometry
-        return (center, dist, angle,max_y[0],count_max_y)
+        return geometry
     except Exception as e:
         print(str(e))
 
@@ -128,7 +168,7 @@ def side_to_image(out_dict: dict, idx: int,points: list, filename: str):
         # maximum value of x and y
         maxx = max(points, key=lambda x: x[0])[0]
         maxy = max(points, key=lambda x: x[1])[1]
-        marg = 0
+        marg = 1
         # size of the image
         sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
         blank_image = np.zeros((sizey, sizex, 3), np.uint8)
@@ -696,7 +736,7 @@ def find_white_pixels(img_path):
     return sorted_coords
 
 
-def get_image_geometry(filename: str):
+def get_image_geometry(filename: str) ->list:
     points = find_white_pixels(img_path = filename)
     # return geometry of the points
     geometry = get_geometry(points)
