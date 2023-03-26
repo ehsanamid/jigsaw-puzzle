@@ -74,18 +74,18 @@ def get_geometry(points):
         geometry.append(center[1])
         
         # get the distance between the center and the first point
-        dist = distance(points[0], center)
-        geometry.append(dist)
+        # dist = distance(points[0], center)
+        # geometry.append(dist)
         # get the angle between the center and the first point
         angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
         # convert the angle to degree
         angle = np.degrees(angle)
-        geometry.append(angle)
+        # geometry.append(angle)
          # get the angle between the center and the last point
         angle = np.arctan2(points[-1][1] - center[1], points[-1][0] - center[0])
         # convert the angle to degree
         angle = np.degrees(angle)
-        geometry.append(angle)
+        # geometry.append(angle)
 
         # get the maximum x value
         max_x = max(points, key=lambda x: x[0])[0]
@@ -109,7 +109,7 @@ def get_geometry(points):
         geometry.append(X2)
         # get the distance between the two points
         dist = X2 - X1
-        geometry.append(dist)
+        # geometry.append(dist)
         
         critical_points = []
         for i in range(max_x):
@@ -145,8 +145,8 @@ def get_geometry(points):
                 Y2 = points[start_idx + block_len][1].astype(float)
                 geometry.append(X1)
                 geometry.append(Y1)
-                geometry.append(Y2)
-                geometry.append(Y2 - Y1)        
+                # geometry.append(Y2)
+                # geometry.append(Y2 - Y1)        
 
         # return the geometry
         return geometry
@@ -605,42 +605,28 @@ def contour_to_image(out_dict,points, filename: str):
 
          
 
-        '''for pt1 in points: 
-            pt = [pt1[0] - minx + marg, pt1[1] - miny + marg]
-            cv2.circle(img=blank_image, center=(pt[0], pt[1]), \
-                radius=0, color=(255, 255, 255), thickness=-1)'''
+        
 
         for i in range(len(out_dict['xy'])):
-            out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + margin, out_dict['xy'][i][1] - miny + margin]
+            out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + margin, \
+                                 out_dict['xy'][i][1] - miny + margin]
         
-        # lines = []
-
         
-        # lines.append(get_line_through_points(out_dict['xy'][0],out_dict['xy'][1]))
-        # lines.append(get_line_through_points(out_dict['xy'][1],out_dict['xy'][2]))
-        # lines.append(get_line_through_points(out_dict['xy'][2],out_dict['xy'][3]))
-        # lines.append(get_line_through_points(out_dict['xy'][3],out_dict['xy'][0]))
 
 
-        with open(filename+".csv", 'w') as file:
-            for i in range(4):
-                file.write(f"{out_dict['xy'][i][0]}, {out_dict['xy'][i][1]}\n")
+       
+        new_points = []
+        # draw the contour
+        for i in range(len(points) ):
+            index1 = i % len(points)
+            index2 = (i+1) % len(points)
             
-            # for i in range(4):
-            #     file.write(f"{lines[i][0]}, {lines[i][1]}, {lines[i][2]}\n")
-            new_points = []
-            # draw the contour
-            for i in range(len(points) ):
-                index1 = i % len(points)
-                index2 = (i+1) % len(points)
-                
-                pt1 = [points[index1][0] - minx + margin, \
-                       points[index1][1] - miny + margin]
-                pt2 = [points[index2][0] - minx + margin, \
-                       points[index2][1] - miny + margin]
-                file.write(f"{pt1[0]}, {pt1[1]}\n")
-                new_points.append(pt1)
-                cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
+            pt1 = [points[index1][0] - minx + margin, \
+                    points[index1][1] - miny + margin]
+            pt2 = [points[index2][0] - minx + margin, \
+                    points[index2][1] - miny + margin]
+            new_points.append(pt1)
+            cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
 
         ret, gray = cv2.threshold(blank_image, 128, 255, cv2.THRESH_BINARY) 
 
@@ -661,7 +647,6 @@ def process_piece1(image,out_dict,df_pieces):
         # xy = out_dict['xy']
         edged = cv2.Canny(gray,30,200)
     
-
         # get the countours of the piece
         contours, hierarchy = cv2.findContours(edged, cv2.RETR_EXTERNAL, \
                                                cv2.CHAIN_APPROX_TC89_KCOS)
@@ -674,40 +659,10 @@ def process_piece1(image,out_dict,df_pieces):
             # if val not in contour_list:
             contour_list.append(c[0].tolist())
 
-        
-
         new_img,new_points = contour_to_image(out_dict,points=contour_list,\
                                                filename=out_dict['name'])
-
         shape_classification(out_dict,new_img,new_points)
-
-       
-
-        
-        
-        '''p1 = find_nearest_point(contour_list, (xy[0][0],xy[0][1]))
-        p2 = find_nearest_point(contour_list, (xy[1][0],xy[1][1]))
-        p3 = find_nearest_point(contour_list, (xy[2][0],xy[2][1]))
-        p4 = find_nearest_point(contour_list, (xy[3][0],xy[3][1]))
-
-        circular_buffer(points=contour_list,\
-                    filename=out_dict['name'],\
-                    count=1, start=p1, end=p2)
-        circular_buffer(points=contour_list,\
-                    filename=out_dict['name'],\
-                    count=2, start=p2, end=p3)
-        circular_buffer(points=contour_list,\
-                    filename=out_dict['name'],\
-                    count=3, start=p3, end=p4)
-        circular_buffer(points=contour_list,\
-                    filename=out_dict['name'],\
-                    count=4, start=p4, end=p1)'''
-
-        
-        
-        
-
-        
+      
     except Exception as e:
         out_dict['error'] = e
     

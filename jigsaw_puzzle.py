@@ -4,98 +4,14 @@ from os.path import join
 import numpy as np
 import pandas as pd
 import cv2
+from piece import Piece
 from side_extractor import process_piece1,get_image_geometry
 import math
+from PIL import Image
 
 
 
-'''def plot_grid(size, out_dict, *image_keys):
-    h, w = size
-    for idx, img_key in enumerate(image_keys, start=1):
-        plt.subplot(h * 100 + w * 10 + idx)
-        if img_key[0] == '_':
-            plt.imshow(out_dict[img_key[1:]], cmap='gray')
-        else:
-            plt.imshow(out_dict[img_key])'''
 
-'''def puzzel_piece(img,out_dict,df_pieces,df_sides,postprocess)-> bool:    
-    gray = process_piece1(img,out_dict=out_dict, \
-                          after_segmentation_func=postprocess, scale_factor=0.4, 
-                             harris_block_size=5, harris_ksize=5,
-                             corner_score_threshold=0.2, corner_minmax_threshold=100)
-    color1 = (255, 0, 0)
-    color2 = (0, 255, 0)
-    # new_xy = np.zeros((2,0))
-    str1 = out_dict['name'] + ","
-    xy_array = out_dict['xy']
-    l = len(out_dict['xy'])
-    for xy in out_dict['xy']:
-        cv2.circle(img,xy,2,color=color1,thickness=3)
-        cv2.imshow(out_dict['name'],img)
-    full_key = cv2.waitKeyEx(0)    
-    for j in range(l,0,-1):
-        i = j-1
-        xy = out_dict['xy'][i]
-        str1 += str(xy[0])+","+str(xy[1])+","
-        cv2.circle(img,xy,2,color=color2,thickness=3)
-        cv2.imshow(out_dict['name'],img)
-        full_key = cv2.waitKeyEx(0)
-        if full_key == 110:
-            xy_array = np.delete(xy_array, i,0)
-    cv2.destroyWindow(out_dict['name'])
-    # str1 = str1[:-1]
-    # str1 += "\n"
-    # f.write(str1)
-    # print(xy_array)
-    out_dict['xy'] = xy_array
-    
-    process_piece2(out_dict, after_segmentation_func=postprocess, scale_factor=0.4, 
-                             harris_block_size=5, harris_ksize=5,
-                             corner_score_threshold=0.2, corner_minmax_threshold=100)
-    # plt.figure(figsize=(6, 6))
-    # plt.title(out_dict['name'])
-    # plt.imshow(out_dict['extracted'], cmap='gray')
-    # plt.scatter(out_dict['xy'][:, 0], out_dict['xy'][:, 1], color='red')
-    # plt.show()
-    return True
-    '''
-    
-
-'''def plot_image(out_dict):          
-    plt.figure(figsize=(6, 6))
-    plt.title(out_dict['name'])
-    plt.imshow(out_dict['extracted'], cmap='gray')
-    # plt.imshow(out_dict['segmented'])
-    plt.scatter(out_dict['xy'][:, 0], out_dict['xy'][:, 1], color='red')
-    #plt.colorbar()
-    plt.show()'''
-
-
-'''def plot_images(results):
-    for out_dict in results:
-        plot_image(out_dict)'''
-
-
-'''def create_label(label_tuple):
-    letter, max_num = label_tuple
-    for i in range(1, max_num + 1):
-        label = letter + str(i) if i >= 10 else letter + '0' + str(i)
-        yield label
-'''
-'''def extract_edges(out_dict):   
-    for i, (side_image, io) in \
-        enumerate(zip(out_dict['side_images'], out_dict['inout']), start=1):    
-        out_io = 'int' if io == 'in' else 'out'
-        side_image = side_image * 255 
-        out_filename = "{0}_{1}_{2}.jpg".format(out_dict['name'], i, out_io)
-        out_path = join('sides', out_filename)
-        cv2.imwrite(out_path, side_image)'''
-
-
-'''def save_peice(image,out_dict):        
-    out_filename = out_dict['name'] + ".jpg"
-    out_path = join('pieces', out_filename)
-    cv2.imwrite(out_path, image)'''
 
 
 # function to return similarity between two lists of points
@@ -357,10 +273,95 @@ def find_geometries():
     except Exception as e:
         print(str(e))
 
+def transparent():
+    # Example usage
+    try:
+        
+        file_names = os.listdir('sides')
+        file_names.sort()
+
+        for file_name in file_names:
+            
+            side_name = file_name.split(".")[0]
+           
+            # Read the image
+            src = cv2.imread(join('sides', file_name), 1)
+            
+            # Convert image to image gray
+            tmp = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+            
+            # Applying thresholding technique
+            _, alpha = cv2.threshold(tmp, 240, 255, cv2.THRESH_BINARY_INV)
+            
+            # Using cv2.split() to split channels 
+            # of coloured image
+            b, g, r = cv2.split(src)
+            
+            # Making list of Red, Green, Blue
+            # Channels and alpha
+            rgba = [b, g, r, alpha]
+            
+            # Using cv2.merge() to merge rgba
+            # into a coloured/multi-channeled image
+            dst = cv2.merge(rgba, 4)
+            
+            # Writing and saving to a new image
+            cv2.imwrite(join('transparent', side_name+".png"), dst)
+
+
+                    
+
+                # temp_string = temp_string[:-1]+"\n"
+                # file.write(temp_string)
+    except Exception as e:
+        print(str(e))
+
+def transparent1():
+    # Example usage
+    try:
+        
+        file_names = os.listdir('sides')
+        file_names.sort()
+
+        for file_name in file_names:
+            
+            side_name = file_name.split(".")[0]
+           
+            # Read the image
+            
+            img = Image.open(join('sides', file_name))
+            img.save(join('transparent', side_name+".png"))
+
+        file_names = os.listdir('transparent')
+        file_names.sort()
+        for file_name in file_names:
+            
+            side_name = file_name.split(".")[0]
+           
+            # Read the image
+            
+            img = Image.open(join('transparent', file_name))
+
+            img = img.convert('RGBA')
+            datas = img.getdata()
+
+            newData = []
+            for item in datas:
+                if not(item[0] == 255 and item[1] == 255 and item[2] == 255):
+                    # newData.append(item)
+                    newData.append((0, 0, 0, 255))
+                else:
+                    newData.append((255, 255, 255, 0))
+            img.putdata(newData)
+            img.save(join('transparent', side_name+".png"))
+
+    except Exception as e:
+        print(str(e))
+
 
 
 # function to read image from camer folder and copy the piece in the pieces folder
-def read_camera_image(piece_file_name: str,input_filename: str,\
+""" def read_camera_image(piece_file_name: str,input_filename: str,\
                         camera_folder: str,piece_folder: str,df_pieces: pd.DataFrame):
 
     img = cv2.imread(join(camera_folder, input_filename))
@@ -387,26 +388,27 @@ def read_camera_image(piece_file_name: str,input_filename: str,\
             },index=[0])
     df_pieces = pd.concat([new_row,df_pieces.loc[:]]).reset_index(drop=True)
     return df_pieces
-
+ """
 
 # function to read image from camer folder and copy the piece in the pieces folder
-def read_camera_images(page_number: int,camera_folder: str,piece_folder: str,df_pieces):
-    filenames = os.listdir(camera_folder)
+def read_camera_images(page_number: int, df: pd.DataFrame):
+    filenames = os.listdir("camera")
     filenames.sort()
     i = 1
     j = 1
     
     for filename in filenames:
         piece_file_name = f"Page_{page_number:04d}_{i}_{j}"
-        if (df_pieces['piece'].eq(piece_file_name)).any():
+        if (df['piece'].eq(piece_file_name)).any():
             continue
         j = j + 1
         if(j > 7):
             j =1
             i = i+1
-        df_pieces = read_camera_image(piece_file_name+".jpg",filename,\
-                        camera_folder,piece_folder,df_pieces)
-    return df_pieces
+        pieces = Piece(piece_file_name)
+        pieces.read_camera_image(filename)
+        
+    # return df_pieces
 
 
 def find_corner(piece_name: str,piece_folder: str):
@@ -621,10 +623,7 @@ def main():
     
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
-    df_pieces = read_camera_images(page_number:= 1,\
-                                   camera_folder:='camera',\
-                                    piece_folder:='pieces',\
-                                        df_pieces)
+    read_camera_images(page_number = 1, df=df_pieces)
     df_pieces.to_csv('pieces.csv', index=False)
     df_pieces = get_corners('pieces_threshold',df_pieces)
     
@@ -633,8 +632,8 @@ def main():
     df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
 
     df_pieces.to_csv('pieces.csv', index=False)
-    find_geometries()
-    
+    # find_geometries()
+    # transparent1()
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
     
