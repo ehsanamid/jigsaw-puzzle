@@ -63,6 +63,8 @@ class Piece:
         self.contour_to_points(image=thr)
         gray = self.contour_to_image()
         self.corners = self.find_corner(gray)
+        self.corners = self.order_points_clockwise(self.corners)
+        self.find_white_pixels()
         # new_row = pd.DataFrame({'piece':self.name, \
         #     'status':'new', \
         #     'X1':-1, \
@@ -140,7 +142,10 @@ class Piece:
             print(str(e))
 
      
-    def find_corner(self, img):
+    def find_corner(self, img1):
+
+        contour_name = join(self.contour_folder, self.name+".jpg")
+        img = cv2.imread(contour_name)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         corners = cv2.goodFeaturesToTrack(gray, 100, 0.2, 10)
@@ -176,9 +181,10 @@ class Piece:
                 xy = (x,y)
                 
                 color2 = (0,0,255)
-                cv2.circle(img,xy,2,color=color2,thickness=3)
+                cv2.circle(img,xy,1,color=color2,thickness=1)
                 cv2.imshow(self.name,img)
                 full_key = cv2.waitKeyEx(0)
+                # print(f"Key pressed {full_key}\n")
                 if full_key == 110:
                     continue
                 if full_key == 120:
@@ -194,3 +200,64 @@ class Piece:
             
             # print(df)
         return output_list
+    
+
+    def order_points_clockwise(self,pts):
+        # Initialize the list of ordered points
+        ordered_pts = [None] * 4
+        
+        # Find the center of the points
+        center = [sum(pt[0] for pt in pts) // len(pts), sum(pt[1] for pt in pts) // len(pts)]
+        
+        # Divide the points into two groups: those above the center and those below
+        above_center = []
+        below_center = []
+        for pt in pts:
+            if pt[1] < center[1]:
+                above_center.append(pt)
+            else:
+                below_center.append(pt)
+        
+        # Sort the points in each group by their x-coordinate
+        above_center = sorted(above_center, key=lambda pt: pt[0])
+        below_center = sorted(below_center, key=lambda pt: pt[0], reverse=True)
+        
+        # Assign the ordered points to the output list
+        ordered_pts[0] = above_center[0]
+        ordered_pts[1] = above_center[-1]
+        ordered_pts[2] = below_center[0]
+        ordered_pts[3] = below_center[-1]
+        
+        return ordered_pts
+
+    
+
+    def find_white_pixels(self):
+        
+        
+        # find the closest point of coords to x,y
+        p1 = self.find_nearest_point(self.new_points, self.corners[0])
+        p2 = self.find_nearest_point(self.new_points, self.corners[1])
+        p3 = self.find_nearest_point(self.new_points, self.corners[2])
+        p4 = self.find_nearest_point(self.new_points, self.corners[3])
+        print(p1,p2,p3,p4)
+        return (p1,p2,p3,p4)
+
+    def find_nearest_point(self,contour, point):
+        """Finds the nearest point in a contour to a given point."""
+        contour = np.asarray(contour)
+        dists = np.sqrt(np.sum((contour - point)**2, axis=1))
+        nearest_idx = np.argmin(dists)
+        nearest_point = contour[nearest_idx]
+        angel = 0
+        for i in range(-5,5):
+            idx0 = (nearest_idx + len(contour) - i -1) % len(contour)
+            idx1 = (nearest_idx + len(contour) - i) % len(contour)
+            idx2 = (nearest_idx + len(contour) - i + 1) % len(contour)
+            m1 = (contour[idx0][1] - contour[idx1][1])/(contour[idx0][0] - contour[idx1][0])
+            m2 = (contour[idx2][1] - contour[idx1][1])/(contour[idx2][0] - contour[idx1][0])
+            m1 = math.atan(m1)
+            m2 = math.atan(m2)
+            print(f"point {contour[idx1]}, m1={m1}, m2={m2} dif={m1-m2}")
+
+        return nearest_point 
