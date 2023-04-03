@@ -603,10 +603,6 @@ def contour_to_image(out_dict,points, filename: str):
 
         blank_image = np.zeros((sizey, sizex, 3), np.uint8)
 
-         
-
-        
-
         for i in range(len(out_dict['xy'])):
             out_dict['xy'][i] = [out_dict['xy'][i][0] - minx + margin, \
                                  out_dict['xy'][i][1] - miny + margin]

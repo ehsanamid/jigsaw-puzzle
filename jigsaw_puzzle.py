@@ -399,14 +399,37 @@ def read_camera_images(page_number: int, df: pd.DataFrame):
     
     for filename in filenames:
         piece_file_name = f"Page_{page_number:04d}_{i}_{j}"
-        if (df['piece'].eq(piece_file_name)).any():
-            continue
         j = j + 1
         if(j > 7):
             j =1
             i = i+1
-        pieces = Piece(piece_file_name)
-        pieces.read_camera_image(filename)
+        if (df['piece'].eq(piece_file_name)).any() and \
+            (df.loc[df['piece'] == piece_file_name, 'status'].iloc[0] == 's'):
+            continue
+        # status of a piece
+        # status = df.loc[df['piece'] == piece_file_name, 'status'].iloc[0]
+        status = "n"
+        piece = Piece(piece_file_name)
+        if(piece.read_camera_image(filename,status)):
+            new_row = pd.DataFrame({'piece':piece_file_name, \
+            'status':'s', \
+            'X1':piece.corners[0][0], \
+            'Y1':piece.corners[0][1], \
+            'IO1':piece.in_out[0], \
+            'X2':piece.corners[1][0], \
+            'Y2':piece.corners[1][1], \
+            'IO2':piece.in_out[1], \
+            'X3':piece.corners[2][0], \
+            'Y3':piece.corners[2][1], \
+            'IO3':piece.in_out[2], \
+            'X4':piece.corners[3][0], \
+            'Y4':piece.corners[3][1], \
+            'IO4':piece.in_out[3] \
+                },index=[0])
+            df = pd.concat([new_row,df.loc[:]]).reset_index(drop=True)
+            print(f"{piece_file_name} added\n")
+    df.to_csv('pieces.csv', index=False)
+    
         
     # return df_pieces
 
@@ -622,16 +645,16 @@ def order_points_clockwise(pts):
 def main():
     
     df_pieces = pd.read_csv('pieces.csv')
-    df_sides = pd.read_csv('sides.csv')
+    # df_sides = pd.read_csv('sides.csv')
     read_camera_images(page_number = 1, df=df_pieces)
-    df_pieces.to_csv('pieces.csv', index=False)
-    df_pieces = get_corners('pieces_threshold',df_pieces)
+    # df_pieces.to_csv('pieces.csv', index=False)
+    # df_pieces = get_corners('pieces_threshold',df_pieces)
     
-    # show_image_with_corners('pieces_threshold',df_pieces)
+    # # show_image_with_corners('pieces_threshold',df_pieces)
 
-    df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
+    # df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
 
-    df_pieces.to_csv('pieces.csv', index=False)
+    # df_pieces.to_csv('pieces.csv', index=False)
     # find_geometries()
     # transparent1()
     # df_pieces = get_corners('pieces_threshold',df_pieces)

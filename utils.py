@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import math
 
 def distance_point_line_squared(a_b_c : tuple, x0_y0 : tuple):
     """
@@ -74,3 +75,59 @@ def intersection_point(line1_point1, line1_point2, line2_point1, line2_point2):
     y_int = slope1 * x_int + y_int1
     
     return (x_int, y_int)
+
+def rotate_points(points, angle, pivot):
+    """Rotate a list of points by a given angle around a pivot point.
+
+    Args:
+        points (list of tuple): A list of points as (x, y) tuples.
+        angle (float): The angle to rotate the points, in degrees.
+        pivot (tuple): The pivot point as an (x, y) tuple.
+
+    Returns:
+        A list of rotated points as (x, y) tuples.
+    """
+    # Convert angle to radians
+    radians = math.radians(angle)
+
+    # Compute sin and cosine of angle
+    cos = math.cos(radians)
+    sin = math.sin(radians)
+
+    # Translate pivot point to origin
+    px, py = pivot
+    translated = [(x - px, y - py) for x, y in points]
+
+    # Rotate points around origin
+    rotated = [[x * cos - y * sin, x * sin + y * cos] for x, y in translated]
+
+    # Translate points back to original position
+    result = [[int(round(x) + px), int(round(y) + py)] for x, y in rotated]
+
+
+    return result
+
+def point_exists(points, x, y):
+    """
+    Check if a [x,y] point exists in the list of points.
+    Args:
+        points (list): a list of [x,y] points
+        x (int): the x coordinate of the point to search for
+        y (int): the y coordinate of the point to search for
+    Returns:
+        bool: True if the point exists in the list, False otherwise
+    """
+    for point in points:
+        if point[0] == x and point[1] == y:
+            return True
+    return False
+
+
+def slope_in_degrees(point1, point2):
+    # Calculate the slope of the line in radians
+    slope_in_radians = math.atan2(point2[1] - point1[1], point2[0] - point1[0])
+    
+    # Convert the slope from radians to degrees
+    slope_in_degrees = math.degrees(slope_in_radians)
+    
+    return slope_in_degrees
