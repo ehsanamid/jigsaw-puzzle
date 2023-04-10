@@ -131,3 +131,10 @@ def slope_in_degrees(point1, point2):
     slope_in_degrees = math.degrees(slope_in_radians)
     
     return slope_in_degrees
+
+# return pixel color as a number
+def color_to_number(pixel_color):
+    """
+    Get the pixel color at a given x and y coordinate
+    """
+    return (pixel_color[0] << 16) + (pixel_color[1] << 8) + pixel_color[2]

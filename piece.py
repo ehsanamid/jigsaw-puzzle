@@ -8,15 +8,23 @@ import cv2
 import math
 from dataclasses import dataclass, field
 from utils import get_line_through_points, distance_point_line_squared,\
-      distance,rotate_points,point_exists,slope_in_degrees
+      distance,rotate_points,point_exists,slope_in_degrees,color_to_number
 from side_extractor import rotation_matrix
 from side import Side   # dataclass
+from enum import Enum
+
+# enum for shape of each side
+class SideShape(Enum):
+    IN = 0
+    OUT = 1
+
 
 @dataclass
 class Piece:
     piece_file_name: str = field(init=False, repr=False)
     name: str
     corners: list[list] = field(init=False, repr=False,default_factory=list)
+    corners_index: list[int] = field(init=False, repr=False,default_factory=list)
     sides: list[Side] = field(init=False, repr=False,default_factory=list)
     camera_folder: str =  field(init=False, repr=False, default= "camera")
     piece_folder: str = field(init=False, repr=False, default= "pieces")
@@ -24,11 +32,13 @@ class Piece:
     contour_folder: str = field(init=False, repr=False, default= "contours")
     
     status: str = field(init=False, repr=False, default= "n")
-    edge_points: list[list] = field(init=False, repr=False, default_factory=list)
+    # edge_points: list[list] = field(init=False, repr=False, default_factory=list)
     # corners: list[list] = field(init=False, repr=False, default_factory=list)
     points_list: list[list] = field(init=False, repr=False, default_factory=list)
-    in_out: list[int] = field(init=False, repr=False, default_factory=list)
-
+    in_out: list[SideShape] = field(init=False, repr=False, default_factory=list)
+    # size of the piece
+    width: int = field(init=False, repr=False, default= 0)
+    height: int = field(init=False, repr=False, default= 0)
     
     def __post_init__(self):
         self.piece_file_name = self.name + ".jpg"
@@ -45,24 +55,58 @@ class Piece:
         img = cv2.imread(join("camera", input_filename))
         img = img[1100:1700,1400:2000]
         img = cv2.GaussianBlur(img,(3,3),0)
+        
+        
         ret, thr = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)  
         piece_name = join(self.piece_folder, self.name+".png")
+        
         cv2.imwrite(piece_name, img)
         threshold_name = join(self.threshold_folder, self.name+".png")
         cv2.imwrite(threshold_name, thr)
-        if(self.contour_to_points(image=thr) is False):
-            return False    
-        gray = self.contour_to_image()
-        if(self.find_corner(gray) is False):
+
+     
+        
+
+        pixel_matrix = self.get_edge_points(thr)
+        self.get_white_pixels(pixel_matrix)
+        
+        # if(self.contour_to_points(image=thr) is False):
+        #     return False    
+        if(self.contour_to_image() is False):
+            return False
+        if(self.find_corner() is False):
             return False
         if(self.order_points_clockwise() is False):
             return False
         if(self.fine_tune_corners() is False):
             return False
-           
-        if(self.shape_classification(gray.shape) is False):
+        if(self.find_shape_in_out() is False):
+            return False
+        if(self.shape_classification() is False):
             return False
         return True
+
+
+
+    
+
+
+    
+
+
+    # retunrs a list of points
+    def image_to_list(self,image)->list:
+        try:
+            height, width = image.shape[:2]
+            points_list = []
+            for y in range(0, height):
+                for x in range(0, width):
+                    if image[y, x] == 0:
+                        points_list.append([x,y])
+            return points_list
+        except Exception as e:
+            print(e)
+        
 
     def contour_to_points(self,image)->bool:
         try:
@@ -85,7 +129,7 @@ class Piece:
             return False
 
     # function to get list of points and maximu size and save the pints in an image
-    def contour_to_image(self):
+    def contour_to_image(self)-> bool:
         try:
             # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
             # minimum value of x and y
@@ -94,23 +138,30 @@ class Piece:
             # maximum value of x and y
             maxx = max(self.points_list, key=lambda x: x[0])[0]
             maxy = max(self.points_list, key=lambda x: x[1])[1]
-            margin = 50
+            margin = 5
             # size of the image
             sizex, sizey = ((maxx - minx + margin*2), (maxy - miny+margin*2))
 
             blank_image = np.zeros((sizey, sizex, 3), np.uint8)
- 
-            self.edge_points = []
+            self.width, self.height = blank_image.shape[:2]
+            # self.edge_points = []
             # draw the contour
+
+            for i in range(len(self.points_list) ):
+                self.points_list[i] = [self.points_list[i][0] - minx + margin, \
+                        self.points_list[i][1] - miny + margin]
+                
             for i in range(len(self.points_list) ):
                 index1 = i % len(self.points_list)
                 index2 = (i+1) % len(self.points_list)
                 
-                pt1 = [self.points_list[index1][0] - minx + margin, \
-                        self.points_list[index1][1] - miny + margin]
-                pt2 = [self.points_list[index2][0] - minx + margin, \
-                        self.points_list[index2][1] - miny + margin]
-                self.edge_points.append(pt1)
+                pt1 = self.points_list[index1]
+                pt2 = self.points_list[index2]
+                # pt1 = [self.points_list[index1][0] - minx + margin, \
+                #         self.points_list[index1][1] - miny + margin]
+                # pt2 = [self.points_list[index2][0] - minx + margin, \
+                #         self.points_list[index2][1] - miny + margin]
+                # self.edge_points.append(pt1)
                 cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
 
             ret, gray = cv2.threshold(blank_image, 128, 255, cv2.THRESH_BINARY) 
@@ -118,13 +169,14 @@ class Piece:
             # cv2.drawContours(blank_image, new_points, -1, (255,255,255), 1)
             contour_name = join(self.contour_folder, self.name+".png")
             cv2.imwrite(contour_name,gray)
-            return gray
+            return True
         
         except Exception as e:
             print(str(e))
+            return False
 
      
-    def find_corner(self, img1)->bool:
+    def find_corner(self)->bool:
         try:
             contour_name = join(self.contour_folder, self.name+".png")
             img = cv2.imread(contour_name)
@@ -224,35 +276,93 @@ class Piece:
 
     def fine_tune_corners(self)->bool:
         try:
-            contour_name = join(self.contour_folder, self.name+".png")
-            img = cv2.imread(contour_name)
-
-            # Convert to grayscale
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-            # Threshold to get white pixels
-            _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
-
-            # Find white pixel coordinates
-            white_pixels = np.where(thresh == 255)
-            coords = [[x, y] for x, y in zip(white_pixels[1], white_pixels[0])]
-            
             # find the closest point of coords to x,y
-            self.find_nearest_point(coords, 0,-1,-1)
-            self.find_nearest_point(coords, 1,1,-1)
-            self.find_nearest_point(coords, 2,1,1)
-            self.find_nearest_point(coords, 3,-1,1)
+            self.find_nearest_point(0,-1,-1)
+            self.find_nearest_point(1,1,-1)
+            self.find_nearest_point(2,1,1)
+            self.find_nearest_point(3,-1,1)
+
+            # rotate self.points_list n times to get the correct order
+            # n = self.corners_index[0]
+            # self.points_list = self.points_list[n:] + self.points_list[:n]
+            # self.corners_index = [i-n for i in self.corners_index]
+
+            revers_order = True
+            for i in range(4):
+                if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
+                      (self.corners_index[(i+1)%4] < self.corners_index[(i+2)%4])):
+                    revers_order = False
+            
+            temp_list_corners = []
+            
+            temp_list_piece = []
+            no_of_points = len(self.points_list)
+            for i in range(4):
+                start_index = self.corners_index[i]
+                temp_list_corners.append(len(temp_list_piece))
+                temp_list_side = []
+                # if revers_order:
+                #     last_index = self.corners_index[(i-1)%4]
+                # else:
+                #     last_index = self.corners_index[(i+1)%4]
+                last_index = self.corners_index[(i+1)%4]
+
+                while(start_index != last_index):
+                    temp_list_side.append(self.points_list[start_index])
+                    if revers_order:
+                        start_index = (start_index+no_of_points-1)%no_of_points
+                    else:
+                        start_index = (start_index+1)%no_of_points
+
+                temp_list_piece = temp_list_piece + temp_list_side
+
+                # if(revers_order): 
+                #     temp_list_piece = temp_list_piece + temp_list_side[::-1]
+                # else:
+                #     temp_list_piece = temp_list_piece + temp_list_side
+
+            self.corners_index = temp_list_corners
+            self.points_list = temp_list_piece
+            file_name = join(self.contour_folder, self.name+".csv")
+            f = open(file_name,"w")
+            for p in self.points_list:
+                f.write(f"{p[0]},{p[1]}\n")
+            f.close()
             return True
         except Exception as e:
             print(e)
             return False
         
     
-
-
-    def find_nearest_point(self,points, idx, a,b)->bool:
+    def find_nearest_point(self, idx, a,b)->bool:
         try:
             """Finds the nearest point in a contour to a given point."""
+            point = self.corners[idx]
+
+            # find the point in point_list that is closest to point
+            closest_index = find_closest_point_index(self.points_list, point)
+            self.corners_index.insert(idx, closest_index)
+            x,y = self.points_list[closest_index]
+            
+            while point_exists(self.points_list, x+a,y+b):
+                x = x+a
+                y = y+b
+            while point_exists(self.points_list, x+a,y):
+                x = x+a
+            while point_exists(self.points_list, x,y+b):
+                y = y+b
+            self.corners[idx] = [x,y]
+
+
+
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
+    """ def find_nearest_point(self,points, idx, a,b)->bool:
+        try:
+            #Finds the nearest point in a contour to a given point.
             point = self.corners[idx]
             contour = np.asarray(points)
             dists = np.sqrt(np.sum((contour - point)**2, axis=1))
@@ -272,170 +382,48 @@ class Piece:
             return True
         except Exception as e:
             print(e)
-            return False
+            return False """
 
-       
-
-    def shape_classification(self,img_shape)->bool:
-        
+    def find_shape_in_out(self)->bool:
         try:
-            threshhold = 30
-
             # get the center of the xy
-            # center = np.mean(out_dict['xy'],axis=0)
-            # calculate to center point of corners list
             center = [sum(pt[0] for pt in self.corners) // len(self.corners),\
                        sum(pt[1] for pt in self.corners) // len(self.corners)]
 
-
-            lines = []  
-            lines.append(get_line_through_points(self.corners[0],self.corners[1]))
-            lines.append(get_line_through_points(self.corners[1],self.corners[2]))
-            lines.append(get_line_through_points(self.corners[2],self.corners[3]))
-            lines.append(get_line_through_points(self.corners[3],self.corners[0]))
-
-
-            # class_image = np.zeros(img.shape, dtype='uint8')
-            c_points = []
-
-            for _edge in self.edge_points:
-                d = [distance_point_line_squared(line, _edge) for line in lines]
-                if np.min(d) < threshhold:
-                    ind = np.argmin(d)  
-                    c_points.append([_edge[0],_edge[1],ind,-1])
-                else:
-                    c_points.append([_edge[0],_edge[1],-1,-1])
-            
-            list_length = len(c_points)
-            # check any point is classified as -1
-            while any([x[2] == -1 for x in c_points]):
-                for i in range(list_length):
-                    if c_points[i][2] == -1:
-                        ind1 = (i + list_length - 1) % list_length
-                        ind2 = (i + 1) % list_length
-                        if c_points[ind1][2] != -1:
-                            c_points[i][3] = c_points[ind1][2]
-                        elif c_points[ind2][2] != -1:
-                            c_points[i][3] = c_points[ind2][2]
-                    else:
-                        c_points[i][3] = c_points[i][2]
-                for i in range(list_length):
-                    c_points[i][2] = c_points[i][3]
-                    c_points[i][3] = -1
-            blank_image = []
-            blank_image.append(np.zeros(img_shape, np.uint8))
-            blank_image.append(np.zeros(img_shape, np.uint8))
-            blank_image.append(np.zeros(img_shape, np.uint8))
-            blank_image.append(np.zeros(img_shape, np.uint8))
-
-
-            for classified_point in c_points:
-                classified_point[3] = -1
-            
-            
-            list_length = len(c_points)
-            for j in range(list_length):
-                if(( j == 0) and (c_points[j][2] != c_points[j+1][2]) or\
-                    ( j == list_length-1) and (c_points[j][2] != c_points[j-1][2])):
-                    c_points[j][3]= 0
-                else:
-                    if ((c_points[j][2] != c_points[j-1][2]) and\
-                        (c_points[j][2] != c_points[j+1][2])):
-                        c_points[j][3]= 0
-                
-            # remove all rows that [3] is zero
-            c_points = [x for x in c_points if x[3] != 0]    
-
-
             for i in range(4):
-                while True:
-                    blocks = []
-                    # list_of_blocks = [] 
-                    list_length = len(c_points)
-                    for j in range(list_length):
-                        if c_points[j][2] == i:
-                            if( j == 0):
-                                start_index = j
-                            else:
-                                if c_points[j][2] != c_points[j-1][2]:
-                                    start_index = j
-                            if( j == list_length-1):
-                                end_index = j
-                                blocks.append([start_index,end_index])
-                            else:
-                                if c_points[j][2] != c_points[j+1][2]:
-                                    end_index = j
-                                    blocks.append([start_index,end_index])
-                                    
-                    
-                    # list_of_blocks.append(blocks)
-                    _point = []
-                    if(len(blocks)>1):
-                        block1 = blocks[0]
-                        block2 = blocks[1]
-                        start_ind1 = block1[0]
-                        end_ind1 = block1[1]
-                        start_ind2 = block2[0]
-                        end_ind2 = block2[1]
-                        start_point1 = (c_points[start_ind1][0],c_points[start_ind1][1])
-                        start_point2 = (c_points[start_ind2][0],c_points[start_ind2][1])
-                        end_point1 = (c_points[end_ind1][0],c_points[end_ind1][1])
-                        end_point2 = (c_points[end_ind2][0],c_points[end_ind2][1])
-
-                        d1 = distance(start_point1,end_point2)
-                        d2 = distance(start_point2,end_point1)
-                        
-                        if(d1<d2):
-                            _point = c_points[block2[0]:block2[1]+1]
-                            _point += c_points[block1[0]:block1[1]+1]
-                            _point += c_points[0:block1[0]]
-                            _point += c_points[block1[1]+1:block2[0]]
-                            if(block2[1]+1 < list_length):
-                                _point += c_points[block2[1]+1:list_length]
-                        else:
-                            _point = c_points[block1[0]:block1[1]+1]
-                            _point += c_points[block2[0]:block2[1]+1]
-                            _point += c_points[0:block1[0]]
-                            _point += c_points[block1[1]+1:block2[0]]
-                            if(block2[1]+1 < list_length):
-                                _point += c_points[block2[1]+1:list_length]
-                        c_points = _point
-                    else:
-                        # _point = classified_points[blocks[0][0]:blocks[0][1]+1]
-                        break
-
-            four_sides_points = []
-
-            four_sides_points.append([[x[0],x[1]] for x in c_points if x[2] == 0])
-            four_sides_points.append([[x[0],x[1]] for x in c_points if x[2] == 1])
-            four_sides_points.append([[x[0],x[1]] for x in c_points if x[2] == 2])
-            four_sides_points.append([[x[0],x[1]] for x in c_points if x[2] == 3])
-            
-            for i,points in enumerate(four_sides_points):
-                head_point = 0
-                head_point_index = -1
-                
-                for j in range(len(four_sides_points[i])):
-                    # find the maximum distance between points in points[i] and lines[i]
-                    
-                    d = distance_point_line_squared(lines[i], points[j])
-                    if (d > head_point):
-                        head_point = d
-                        head_point_index = j
+                if(i == 3):
+                    side_points = self.points_list[self.corners_index[i]:]
+                else:
+                    side_points = self.points_list[self.corners_index[i]:self.corners_index[(i+1)%4]]
+                line = get_line_through_points(self.corners[i],self.corners[(i+1)%4])
+                # find the index of maximum distance between points in side_points and line
+                ds = [distance_point_line_squared(line, point) for point in side_points]
+                max_d = max(ds)
+                max_d_index = ds.index(max_d)
                 corner1 = self.corners[i]
                 corner2 = self.corners[(i+1)%4]    
-                
-                # pt1 is middle point between corner1 and corner2
                 pt1 = [(corner1[0]+corner2[0])/2,(corner1[1]+corner2[1])/2]
                 d1 = distance(pt1,center)
-                d2 = distance(points[head_point_index],center)
+                d2 = distance(side_points[max_d_index],center)
                 if(d1<d2):
-                    self.in_out.append(1)
+                    self.in_out.append(SideShape.OUT)
                 else:
-                    self.in_out.append(0)
-                    
-            for i,points in enumerate(four_sides_points):
-                self.side_to_image(i,points)
+                    self.in_out.append(SideShape.IN)
+                
+            return True
+        except Exception as e:
+            print(e)
+            return False   
+
+    def shape_classification(self)->bool:
+        
+        try:
+            for i in range(4):
+                if(i == 3):
+                    side_points = self.points_list[self.corners_index[i]:]
+                else:
+                    side_points = self.points_list[self.corners_index[i]:self.corners_index[(i+1)%4]]
+                self.side_to_image(i,side_points)
             return True
         except Exception as e:
             print(e)
@@ -475,7 +463,7 @@ class Piece:
     def side_to_image(self, idx: int,points: list)->bool:
         try:
             # show_point(points)
-            oriatation = self.in_out[0]
+            oriatation = self.in_out[0].value
             
             points = rotate_points(points, \
                                 rotation_matrix[oriatation, idx], \
@@ -538,10 +526,224 @@ class Piece:
             else:
                 filename = f"{self.name}_{idx+1}_out"
             cv2.imwrite(join('sides', filename +".png"),blank_image)
-            # cv2.imshow("image",blank_image)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+            
+            
+            f = open(join('sides', filename +".csv"),"w")
+            for p in points:
+                f.write(f"{p[0]},{p[1]}\n")
+            f.close()
+
             return True
         except Exception as e:
             print(e)
             return False     
+
+    def get_edge_points(self,img):
+        try:
+            ret, image = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)
+            pixel_matrix = image.tolist()
+            pixel_matrix = threshold_image(pixel_matrix)
+            # Create a copy of the input image
+            
+            for row in range(1,len(pixel_matrix)-1):
+                for col in range(1,len(pixel_matrix[row])-1):
+                    if(pixel_matrix[row][col] == [255,255,255]):
+                        if(pixel_matrix[row-1][col] == [0,0,0] or \
+                           pixel_matrix[row+1][col] == [0,0,0] or \
+                           pixel_matrix[row][col-1] == [0,0,0] or \
+                           pixel_matrix[row][col+1] == [0,0,0] ):
+                            pixel_matrix[row][col] = [128,128,128]
+
+            for row in range(1,len(pixel_matrix)-1):
+                for col in range(1,len(pixel_matrix[row])-1):
+                    if(pixel_matrix[row][col] == [128,128,128]):
+                        pixel_matrix[row][col] = [255,255,255]
+                    else:
+                        pixel_matrix[row][col] = [0,0,0]
+                                       
+            # file_name = join(self.contour_folder, self.name+".csv")
+            # f = open(file_name,"w")
+      
+            # for row in range(len(pixel_matrix)):
+            #     for col in range(len(pixel_matrix[row])):
+            #         if(pixel_matrix[row][col] == [255,255,255]):
+            #             f.write(f"{row},{col}\n")
+                
+            # f.close()
+            
+            return pixel_matrix
+        except Exception as e:
+            print(e)
+
+    def get_white_pixels(self,pixel_matrix):
+        try:
+           
+            pixels_list = []
+            for row in range(len(pixel_matrix)):
+                for col in range(len(pixel_matrix[row])):
+                    if(pixel_matrix[row][col] == [255,255,255]):
+                        pixels_list.append((row,col))
+           
+            # create a list of status for each pixel
+            status = []
+            left_index = []
+            right_index = []
+            for i in range(len(pixels_list)):
+                status.append(0)
+                left_index.append(-1)
+                right_index.append(-1)
+            
+            for i in range(len(pixels_list)):
+                links = get_adjacent_points(pixels_list,i)
+                if(len(links) == 2):
+                    status[i] = 1
+                    left_index[i] = links[0]
+                    right_index[i] = links[1]
+                elif(len(links) == 3):
+                    p0 = pixels_list[i]
+                    p1 = pixels_list[links[0]]
+                    p2 = pixels_list[links[1]]
+                    p3 = pixels_list[links[2]]
+                    if(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p2) == 1):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        right_index[i] = links[1]
+                    elif(pixel_distance(p0,p2) == 1) and (pixel_distance(p0,p3) == 1):
+                        status[i] = 1
+                        left_index[i] = links[1]
+                        right_index[i] = links[2]
+                    elif(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p3) == 1):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        right_index[i] = links[2]
+                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p2) == 2):
+                        status[i] = 1
+                        left_index[i] = links[2]
+                        if(pixel_distance(p1,p3) < pixel_distance(p2,p3)):
+                            right_index[i] = links[1]
+                        else:
+                            right_index[i] = links[0]
+                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p3) == 2):
+                        status[i] = 1
+                        left_index[i] = links[1]
+                        if(pixel_distance(p1,p2) < pixel_distance(p3,p2)):
+                            right_index[i] = links[2]
+                        else:
+                            right_index[i] = links[0]
+                    elif(pixel_distance(p0,p2) == 2) and (pixel_distance(p0,p3) == 2):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        if(pixel_distance(p2,p1) < pixel_distance(p3,p1)):
+                            right_index[i] = links[2]
+                        else:
+                            right_index[i] = links[1]
+                    else:
+                        print(f"error: {i} {links} {pixels_list[i]}")  
+                        return False
+                    
+                else:
+                    print(f"error: {i} {links} {pixels_list[i]}")
+                    return False
+            
+            # Return the list of white pixels
+            for i in range(len(pixels_list)):
+                if(status[i] == 0):
+                    print(f"Error in  index {i}")
+                    return False
+            
+            start_point = 0
+            next_point = left_index[0]
+            self.points_list.append(pixels_list[start_point])
+           
+            while(next_point != 0):
+                self.points_list.append(pixels_list[next_point])
+                new_point = next_pixel(next_point,start_point,left_index,right_index)
+                start_point = next_point
+                next_point = new_point
+                
+            
+
+
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
+def next_pixel(next_point,start_point,left_index,right_index):
+    # get the next pixel in the contour
+    if(start_point == left_index[next_point]):
+        return right_index[next_point]
+    else:
+        return left_index[next_point]
+    
+
+# check if the points are diagonal
+def pixel_distance(p1,p2)->int:
+    # distance between the points
+    return (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
+        
+
+def get_adjacent_points(white_pixels_list,idx):
+    # get the adjacent points of the idx-th point in the list
+    x = white_pixels_list[idx][0]
+    y = white_pixels_list[idx][1]
+    adjacent_list = []
+    for i in range(-1,2):
+        for j in range(-1,2):
+            if(i != 0 or j != 0):
+                ind = search_pixel_list(white_pixels_list,x+i,y+j)
+                if(ind != -1):
+                    adjacent_list.append(ind)
+    return adjacent_list
+
+def search_pixel_list(white_pixels_list,x,y):
+    # search for the pixel in the list
+    # if found return the index
+    # otherwise return -1
+    for i in range(len(white_pixels_list)):
+        if(white_pixels_list[i][0] == x and white_pixels_list[i][1] == y):
+            return i
+    return -1
+
+
+def is_pixel_and_surrounding_white(pixel_matrix, row, col):
+    # Check if the pixel is white
+    if pixel_matrix[row][col] != [255, 255, 255]:
+        return False
+    # Check if all surrounding pixels are white
+    for i in range(row-1, row+2):
+        for j in range(col-1, col+2):
+            if pixel_matrix[i][j] != [255, 255, 255]:
+                return False
+    return True
+
+def threshold_image(pixel_matrix):
+    pixel_matrix = transpose_matrix(pixel_matrix)
+    # Iterate over all pixels in the matrix
+    for row in range(len(pixel_matrix)):
+        for col in range(len(pixel_matrix[row])):
+            # If the pixel is not white, set it to black
+            if pixel_matrix[row][col] != [255, 255, 255]:
+                pixel_matrix[row][col] = [0,0,0]
+            # else:
+            #     pixel_matrix[row][col] = 0xffffff
+    return pixel_matrix
+
+def transpose_matrix(pixel_matrix):
+    # Use the zip function to transpose the matrix
+    transposed_matrix = list(map(list, zip(*pixel_matrix)))
+    return transposed_matrix
+
+
+
+
+
+def find_closest_point_index(points, target):
+    closest_index = None
+    closest_distance = float('inf')
+    for i, point in enumerate(points):
+        distance = math.sqrt((point[0]-target[0])**2 + (point[1]-target[1])**2)
+        if distance < closest_distance:
+            closest_index = i
+            closest_distance = distance
+    return closest_index
