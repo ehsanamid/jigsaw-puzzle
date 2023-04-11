@@ -233,36 +233,37 @@ def find_geometries():
     try:
         list_len = 0
         cols = []
+        # return list of csv files in sides folder
+        
         file_names = os.listdir('sides')
         file_names.sort()
 
         for file_name in file_names:
-            if(file_name == "Page_0001_4_2_1_in.jpg"):
-                continue
-            side_name = file_name.split(".")[0]
-            # remove "_in" or "_out" from side_name
-            # if(side_name.endswith("_in")):
-            #     s_name = side_name[:-3]
-            #     s_orientation = 0
-            # elif(side_name.endswith("_out")):
-            #     s_name = side_name[:-4]
-            #     s_orientation = 1
-            geometry = get_image_geometry(join('sides', file_name))
-            geometry.insert(0, side_name)
-            if(list_len == 0):
-                list_len = len(geometry)
-                # cols.append('Name')
-                # for i in range(1,list_len):
-                #     cols.append('Col'+str(i))
-                # create a list of column names from 1 to list_len
-                cols = ['Col'+ str(c) for c in range(1, list_len)]
-                cols.insert(0, 'Name')
-                df = pd.DataFrame(columns = cols)
-                df.loc[len(df)] = geometry
-                print(file_name)
-            else:
-                df.loc[len(df)] = geometry
-                print(file_name)
+            if(file_name.endswith(".csv")):
+                side_name = file_name.split(".")[0]
+                # remove "_in" or "_out" from side_name
+                # if(side_name.endswith("_in")):
+                #     s_name = side_name[:-3]
+                #     s_orientation = 0
+                # elif(side_name.endswith("_out")):
+                #     s_name = side_name[:-4]
+                #     s_orientation = 1
+                geometry = get_image_geometry(join('sides', file_name))
+                geometry.insert(0, side_name)
+                if(list_len == 0):
+                    list_len = len(geometry)
+                    # cols.append('Name')
+                    # for i in range(1,list_len):
+                    #     cols.append('Col'+str(i))
+                    # create a list of column names from 1 to list_len
+                    cols = ['Col'+ str(c) for c in range(1, list_len)]
+                    cols.insert(0, 'Name')
+                    df = pd.DataFrame(columns = cols)
+                    df.loc[len(df)] = geometry
+                    print(file_name)
+                else:
+                    df.loc[len(df)] = geometry
+                    print(file_name)
         df.to_csv("geometry.csv", index=False)
 
 
@@ -659,6 +660,7 @@ def main():
     # transparent1()
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
+    find_geometries()
     
     
     # find_the_best_matchs()

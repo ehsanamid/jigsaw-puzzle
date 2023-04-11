@@ -54,7 +54,8 @@ class Piece:
     def read_camera_image(self,input_filename: str, stat: str)->bool:
         img = cv2.imread(join("camera", input_filename))
         img = img[1100:1700,1400:2000]
-        img = cv2.GaussianBlur(img,(3,3),0)
+        # img = cv2.GaussianBlur(img,(3,3),0)
+        img = cv2.GaussianBlur(img,(5,5),0)
         
         
         ret, thr = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)  
@@ -63,9 +64,6 @@ class Piece:
         cv2.imwrite(piece_name, img)
         threshold_name = join(self.threshold_folder, self.name+".png")
         cv2.imwrite(threshold_name, thr)
-
-     
-        
 
         pixel_matrix = self.get_edge_points(thr)
         self.get_white_pixels(pixel_matrix)
@@ -85,14 +83,6 @@ class Piece:
         if(self.shape_classification() is False):
             return False
         return True
-
-
-
-    
-
-
-    
-
 
     # retunrs a list of points
     def image_to_list(self,image)->list:
@@ -508,6 +498,9 @@ class Piece:
             # shift all points to (minx,miny) and add margin
             points = [[points[i][0] - minx + marg,points[i][1] - miny + marg] \
                     for i in range(len(points))]
+            
+            if(points[0][0] > points[-1][0]):
+                points = points[::-1]
             # draw the contour
             for i in range(len(points) -1 ):
                 # index1 = i 
@@ -521,7 +514,7 @@ class Piece:
             
                 
             # add "in" or "out" to the file name based on orientation
-            if self.in_out[idx] == 0:
+            if self.in_out[idx] == SideShape.IN:
                 filename = f"{self.name}_{idx+1}_in"
             else:
                 filename = f"{self.name}_{idx+1}_out"

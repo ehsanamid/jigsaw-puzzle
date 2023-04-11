@@ -1,4 +1,6 @@
 piece,status,X1,Y1,IO1,X2,Y2,IO2,X3,Y3,IO3,X4,Y4,IO4
+Page_0001_5_2,s,18,95,SideShape.OUT,294,31,SideShape.IN,339,240,SideShape.OUT,33,312,SideShape.IN
+Page_0001_2_2,s,92,32,SideShape.IN,306,6,SideShape.OUT,316,217,SideShape.IN,83,223,SideShape.OUT
 Page_0001_5_7,s,21,71,SideShape.OUT,321,48,SideShape.IN,299,277,SideShape.OUT,31,276,SideShape.IN
 Page_0001_5_6,s,74,39,SideShape.IN,326,25,SideShape.OUT,333,259,SideShape.IN,86,266,SideShape.OUT
 Page_0001_5_5,s,18,73,SideShape.OUT,303,63,SideShape.IN,286,270,SideShape.OUT,29,290,SideShape.IN

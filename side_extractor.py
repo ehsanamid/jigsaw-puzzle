@@ -1,3 +1,4 @@
+import csv
 from os.path import join
 import numpy as np
 import matplotlib.pyplot as plt
@@ -67,6 +68,7 @@ def get_geometry(points):
     try:
         geometry = []
 
+        
         # get the center of the xy
         center = np.mean(points, axis=0)
         # add the center to the geometry as two float values
@@ -89,23 +91,24 @@ def get_geometry(points):
 
         # get the maximum x value
         max_x = max(points, key=lambda x: x[0])[0]
-        geometry.append(max_x.astype(float))
+        # geometry.append(max_x.astype(float))
+        geometry.append(max_x)
         
         # get points with maximum y and the index of the point
         max_y = max(points, key=lambda x: x[1])
-        geometry.append(max_y[1].astype(float))
+        geometry.append(max_y[1])
 
         # return index of points that have y value equal to max_y
         idx = [j for j, x in enumerate(points) if x[1] == max_y[1]]
 
         # index of the first point in idx
         max_y_idx1 =idx[0]
-        X1 = points[max_y_idx1][0].astype(float)
+        X1 = points[max_y_idx1][0]
         geometry.append(X1)
 
         # index of the last point in idx
         max_y_idx2 =idx[-1]
-        X2 = points[max_y_idx2][0].astype(float)
+        X2 = points[max_y_idx2][0]
         geometry.append(X2)
         # get the distance between the two points
         dist = X2 - X1
@@ -140,9 +143,9 @@ def get_geometry(points):
             for block in blocks:
                 start_idx = block[0]
                 block_len = block[1]
-                X1 = points[start_idx][0].astype(float)
-                Y1 = points[start_idx][1].astype(float)
-                Y2 = points[start_idx + block_len][1].astype(float)
+                X1 = points[start_idx][0]
+                Y1 = points[start_idx][1]
+                Y2 = points[start_idx + block_len][1]
                 geometry.append(X1)
                 geometry.append(Y1)
                 # geometry.append(Y2)
@@ -688,7 +691,14 @@ def find_white_pixels(img_path):
 
 
 def get_image_geometry(filename: str) ->list:
-    points = find_white_pixels(img_path = filename)
-    # return geometry of the points
+    # load csv file for the side in points list
+    
+    points = []
+
+    with open(filename, 'r') as csv_file:
+        rows = csv_file.readlines()  # read all lines in CSV file
+        for line in rows:  # read line from list
+            x, y = line.strip().split(",")
+            points.append((int(x), int(y)))
     geometry = get_geometry(points)
     return geometry
