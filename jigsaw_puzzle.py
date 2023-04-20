@@ -4,7 +4,7 @@ from os.path import join
 import numpy as np
 import pandas as pd
 import cv2
-from piece import Piece
+from piece import Piece, SideShape
 from side_extractor import process_piece1,get_image_geometry
 import math
 from PIL import Image
@@ -249,6 +249,8 @@ def find_geometries():
                 #     s_name = side_name[:-4]
                 #     s_orientation = 1
                 geometry = get_image_geometry(join('sides', file_name))
+                if(geometry is None):
+                    continue
                 geometry.insert(0, side_name)
                 if(list_len == 0):
                     list_len = len(geometry)
@@ -271,91 +273,6 @@ def find_geometries():
 
                 # temp_string = temp_string[:-1]+"\n"
                 # file.write(temp_string)
-    except Exception as e:
-        print(str(e))
-
-def transparent():
-    # Example usage
-    try:
-        
-        file_names = os.listdir('sides')
-        file_names.sort()
-
-        for file_name in file_names:
-            
-            side_name = file_name.split(".")[0]
-           
-            # Read the image
-            src = cv2.imread(join('sides', file_name), 1)
-            
-            # Convert image to image gray
-            tmp = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-            
-            # Applying thresholding technique
-            _, alpha = cv2.threshold(tmp, 240, 255, cv2.THRESH_BINARY_INV)
-            
-            # Using cv2.split() to split channels 
-            # of coloured image
-            b, g, r = cv2.split(src)
-            
-            # Making list of Red, Green, Blue
-            # Channels and alpha
-            rgba = [b, g, r, alpha]
-            
-            # Using cv2.merge() to merge rgba
-            # into a coloured/multi-channeled image
-            dst = cv2.merge(rgba, 4)
-            
-            # Writing and saving to a new image
-            cv2.imwrite(join('transparent', side_name+".png"), dst)
-
-
-                    
-
-                # temp_string = temp_string[:-1]+"\n"
-                # file.write(temp_string)
-    except Exception as e:
-        print(str(e))
-
-def transparent1():
-    # Example usage
-    try:
-        
-        file_names = os.listdir('sides')
-        file_names.sort()
-
-        for file_name in file_names:
-            
-            side_name = file_name.split(".")[0]
-           
-            # Read the image
-            
-            img = Image.open(join('sides', file_name))
-            img.save(join('transparent', side_name+".png"))
-
-        file_names = os.listdir('transparent')
-        file_names.sort()
-        for file_name in file_names:
-            
-            side_name = file_name.split(".")[0]
-           
-            # Read the image
-            
-            img = Image.open(join('transparent', file_name))
-
-            img = img.convert('RGBA')
-            datas = img.getdata()
-
-            newData = []
-            for item in datas:
-                if not(item[0] == 255 and item[1] == 255 and item[2] == 255):
-                    # newData.append(item)
-                    newData.append((0, 0, 0, 255))
-                else:
-                    newData.append((255, 255, 255, 0))
-            img.putdata(newData)
-            img.save(join('transparent', side_name+".png"))
-
     except Exception as e:
         print(str(e))
 
@@ -392,7 +309,50 @@ def transparent1():
  """
 
 # function to read image from camer folder and copy the piece in the pieces folder
-def read_camera_images(page_number: int, df: pd.DataFrame):
+def extract_piece_from_camera_images(page_number: int, folder_name: str, df: pd.DataFrame):
+    filenames = os.listdir(folder_name)
+    filenames.sort()
+    i = 1
+    j = 1
+    new_record_added = False
+    for filename in filenames:
+        piece_file_name = f"Page_{page_number:04d}_{i}_{j}"
+        j = j + 1
+        if(j > 7):
+            j =1
+            i = i+1
+        if (df['piece'].eq(piece_file_name)).any():
+            continue
+        # status of a piece
+        # status = df.loc[df['piece'] == piece_file_name, 'status'].iloc[0]
+        status = "n"
+        piece = Piece(piece_file_name)
+        if(piece.camera_image_to_piece(filename,folder_name,status)):  
+            print(f"{piece_file_name} added\n")
+            new_row = pd.DataFrame({'piece':piece_file_name, \
+            'status':'s', \
+            'X1':0, \
+            'Y1':0, \
+            'IO1':SideShape.UNDEFINED, \
+            'X2':0, \
+            'Y2':0, \
+            'IO2':SideShape.UNDEFINED, \
+            'X3':0, \
+            'Y3':0, \
+            'IO3':SideShape.UNDEFINED, \
+            'X4':0, \
+            'Y4':0, \
+            'IO4':SideShape.UNDEFINED, \
+                },index=[0])
+            df = pd.concat([new_row,df.loc[:]]).reset_index(drop=True)
+            new_record_added = True
+    if(new_record_added):
+        df.to_csv("pieces.csv", index=False)
+
+    return df
+   
+    
+def process_camera_images(page_number: int, df: pd.DataFrame):
     filenames = os.listdir("camera")
     filenames.sort()
     i = 1
@@ -411,7 +371,7 @@ def read_camera_images(page_number: int, df: pd.DataFrame):
         # status = df.loc[df['piece'] == piece_file_name, 'status'].iloc[0]
         status = "n"
         piece = Piece(piece_file_name)
-        if(piece.read_camera_image(filename,status)):
+        if(piece.camera_image_to_piece(filename,status)):
             new_row = pd.DataFrame({'piece':piece_file_name, \
             'status':'s', \
             'X1':piece.corners[0][0], \
@@ -430,8 +390,7 @@ def read_camera_images(page_number: int, df: pd.DataFrame):
             df = pd.concat([new_row,df.loc[:]]).reset_index(drop=True)
             print(f"{piece_file_name} added\n")
     df.to_csv('pieces.csv', index=False)
-    
-        
+   
     # return df_pieces
 
 
@@ -647,7 +606,23 @@ def main():
     
     df_pieces = pd.read_csv('pieces.csv')
     # df_sides = pd.read_csv('sides.csv')
-    read_camera_images(page_number = 1, df=df_pieces)
+
+    # extract_piece_from_camera_images(page_number = 1,folder_name = "cam01", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 2,folder_name = "cam02", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 3,folder_name = "cam03", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 4,folder_name = "cam04", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 5,folder_name = "cam05", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 6,folder_name = "cam06", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 7,folder_name = "cam07", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 8,folder_name = "cam08", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 9,folder_name = "cam09", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 10,folder_name = "cam10", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 11,folder_name = "cam11", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 12,folder_name = "cam12", df=df_pieces)
+    # extract_piece_from_camera_images(page_number = 13,folder_name = "cam13", df=df_pieces)
+    # df_pieces = extract_piece_from_camera_images(page_number = 14,folder_name = "cam14", df=df_pieces)
+    df_pieces = extract_piece_from_camera_images(page_number = 15,folder_name = "cam15", df=df_pieces)
+    
     # df_pieces.to_csv('pieces.csv', index=False)
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     
@@ -660,7 +635,8 @@ def main():
     # transparent1()
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
-    find_geometries()
+    
+    """ find_geometries() """
     
     
     # find_the_best_matchs()

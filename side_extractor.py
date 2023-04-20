@@ -104,15 +104,15 @@ def get_geometry(points):
         # index of the first point in idx
         max_y_idx1 =idx[0]
         X1 = points[max_y_idx1][0]
-        geometry.append(X1)
+        # geometry.append(X1)
 
         # index of the last point in idx
         max_y_idx2 =idx[-1]
         X2 = points[max_y_idx2][0]
-        geometry.append(X2)
+        geometry.append((X1+X2)//2)
         # get the distance between the two points
         dist = X2 - X1
-        # geometry.append(dist)
+        geometry.append(dist)
         
         critical_points = []
         for i in range(max_x):
@@ -155,6 +155,7 @@ def get_geometry(points):
         return geometry
     except Exception as e:
         print(str(e))
+        return None
 
 def side_to_image(out_dict: dict, idx: int,points: list, filename: str):
     try:

@@ -102,7 +102,8 @@ def rotate_points(points, angle, pivot):
     rotated = [[x * cos - y * sin, x * sin + y * cos] for x, y in translated]
 
     # Translate points back to original position
-    result = [[int(round(x) + px), int(round(y) + py)] for x, y in rotated]
+    # result = [[int(round(x) + px), int(round(y) + py)] for x, y in rotated]
+    result = [[int(x + px), int(y + py)] for x, y in rotated]
 
 
     return result

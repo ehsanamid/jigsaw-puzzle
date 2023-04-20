@@ -17,6 +17,7 @@ from enum import Enum
 class SideShape(Enum):
     IN = 0
     OUT = 1
+    UNDEFINED = 2
 
 
 @dataclass
@@ -51,23 +52,184 @@ class Piece:
         self.corners = []
         self.sides = []
 
-    def read_camera_image(self,input_filename: str, stat: str)->bool:
-        img = cv2.imread(join("camera", input_filename))
-        img = img[1100:1700,1400:2000]
+
+
+    def camera_image_to_piece(self,input_filename: str,\
+                              folder_name: str, stat: str)->bool:
+        img = cv2.imread(join(folder_name, input_filename))
+        img = img[1350:1750,1050:1450]
         # img = cv2.GaussianBlur(img,(3,3),0)
-        img = cv2.GaussianBlur(img,(5,5),0)
-        
-        
-        ret, thr = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)  
+        # img = cv2.GaussianBlur(img,(5,5),0)
+        # cv2.imshow("img1",img)
+        # cv2.waitKey(0)
+
+        # flip the img horizontally and vertically
+        img = cv2.flip(img, -1)
+
         piece_name = join(self.piece_folder, self.name+".png")
+        threshold_name = join(self.threshold_folder, self.name+".png")
+        
+        img = cv2.GaussianBlur(img,(3,3),0)
+        # img = cv2.bilateralFilter(img, 9, 75, 75)
+
+        kernel_3x3 = np.ones((3,3),np.float32)/9
+        # kernel_7x7 = np.ones((7,7),np.float32)/49
+        # kernel_9x9 = np.ones((9,9),np.float32)/81
+
+        img = cv2.filter2D(img,-1,kernel_3x3)
+        # cv2.imshow("img2",img)
+        # cv2.waitKey(0)
+        # ret, thr = cv2.threshold(img, 180, 255, cv2.THRESH_BINARY_INV)  
+        ret, thr = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)  
         
         cv2.imwrite(piece_name, img)
-        threshold_name = join(self.threshold_folder, self.name+".png")
-        cv2.imwrite(threshold_name, thr)
+        thr1 = cv2.GaussianBlur(thr,(3,3),0)
+        ret, thr2 = cv2.threshold(thr1, 100, 255, cv2.THRESH_BINARY) 
+        cv2.imwrite(threshold_name, thr2)
 
-        pixel_matrix = self.get_edge_points(thr)
-        self.get_white_pixels(pixel_matrix)
-        
+        # pixel_matrix = self.get_edge_points(thr)
+        # self.get_white_pixels(pixel_matrix)
+
+        return True
+
+    def get_edge_points(self,img):
+        try:
+            ret, image = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)
+            pixel_matrix = image.tolist()
+            pixel_matrix = threshold_image(pixel_matrix)
+            # Create a copy of the input image
+            
+            for row in range(1,len(pixel_matrix)-1):
+                for col in range(1,len(pixel_matrix[row])-1):
+                    if(pixel_matrix[row][col] == [255,255,255]):
+                        if(pixel_matrix[row-1][col] == [0,0,0] or \
+                           pixel_matrix[row+1][col] == [0,0,0] or \
+                           pixel_matrix[row][col-1] == [0,0,0] or \
+                           pixel_matrix[row][col+1] == [0,0,0] ):
+                            pixel_matrix[row][col] = [128,128,128]
+
+            for row in range(1,len(pixel_matrix)-1):
+                for col in range(1,len(pixel_matrix[row])-1):
+                    if(pixel_matrix[row][col] == [128,128,128]):
+                        pixel_matrix[row][col] = [255,255,255]
+                    else:
+                        pixel_matrix[row][col] = [0,0,0]
+                                       
+            # file_name = join(self.contour_folder, self.name+".csv")
+            # f = open(file_name,"w")
+      
+            # for row in range(len(pixel_matrix)):
+            #     for col in range(len(pixel_matrix[row])):
+            #         if(pixel_matrix[row][col] == [255,255,255]):
+            #             f.write(f"{row},{col}\n")
+                
+            # f.close()
+            
+            return pixel_matrix
+        except Exception as e:
+            print(e)
+
+
+    def get_white_pixels(self,pixel_matrix):
+        try:     
+            pixels_list = []
+            for row in range(len(pixel_matrix)):
+                for col in range(len(pixel_matrix[row])):
+                    if(pixel_matrix[row][col] == [255,255,255]):
+                        pixels_list.append((row,col))
+           
+            # create a list of status for each pixel
+            status = []
+            left_index = []
+            right_index = []
+            for i in range(len(pixels_list)):
+                status.append(0)
+                left_index.append(-1)
+                right_index.append(-1)
+            
+            for i in range(len(pixels_list)):
+                links = get_adjacent_points(pixels_list,i)
+                if(len(links) == 2):
+                    status[i] = 1
+                    left_index[i] = links[0]
+                    right_index[i] = links[1]
+                elif(len(links) == 3):
+                    p0 = pixels_list[i]
+                    p1 = pixels_list[links[0]]
+                    p2 = pixels_list[links[1]]
+                    p3 = pixels_list[links[2]]
+                    if(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p2) == 1):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        right_index[i] = links[1]
+                    elif(pixel_distance(p0,p2) == 1) and (pixel_distance(p0,p3) == 1):
+                        status[i] = 1
+                        left_index[i] = links[1]
+                        right_index[i] = links[2]
+                    elif(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p3) == 1):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        right_index[i] = links[2]
+                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p2) == 2):
+                        status[i] = 1
+                        left_index[i] = links[2]
+                        if(pixel_distance(p1,p3) < pixel_distance(p2,p3)):
+                            right_index[i] = links[1]
+                        else:
+                            right_index[i] = links[0]
+                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p3) == 2):
+                        status[i] = 1
+                        left_index[i] = links[1]
+                        if(pixel_distance(p1,p2) < pixel_distance(p3,p2)):
+                            right_index[i] = links[2]
+                        else:
+                            right_index[i] = links[0]
+                    elif(pixel_distance(p0,p2) == 2) and (pixel_distance(p0,p3) == 2):
+                        status[i] = 1
+                        left_index[i] = links[0]
+                        if(pixel_distance(p2,p1) < pixel_distance(p3,p1)):
+                            right_index[i] = links[2]
+                        else:
+                            right_index[i] = links[1]
+                    else:
+                        print(f"{self.name} get_white_pixels Error: {i} {links} {pixels_list[i]}")  
+                        return False
+                    
+                else:
+                    print(f"{self.name} get_white_pixels Error: {i} {links} {pixels_list[i]}")
+                    return False
+            
+            # Return the list of white pixels
+            for i in range(len(pixels_list)):
+                if(status[i] == 0):
+                    print(f"{self.name} get_white_pixels Error in  index {i}")
+                    return False
+            
+            start_point = 0
+            next_point = left_index[0]
+            self.points_list.append(pixels_list[start_point])
+           
+            while(next_point != 0):
+                self.points_list.append(pixels_list[next_point])
+                new_point = next_pixel(next_point,start_point,left_index,right_index)
+                start_point = next_point
+                next_point = new_point
+    
+            file_name = join(self.contour_folder, self.name+"_points.csv")
+            f = open(file_name,"w")
+      
+            for pt in self.points_list:
+                f.write(f"{pt[0]},{pt[1]}\n")
+                
+            f.close()
+
+            return True
+        except Exception as e:
+            print(e)
+            return False
+
+
+    def process_camera_image(self)->bool:
         # if(self.contour_to_points(image=thr) is False):
         #     return False    
         if(self.contour_to_image() is False):
@@ -478,7 +640,8 @@ class Piece:
                 angle =  angle - 180
             else:
                 angle = angle 
- 
+            
+            """
             points = rotate_points(points, \
                                 angle, \
                                     self.corners[idx])
@@ -490,7 +653,7 @@ class Piece:
             # maximum value of x and y
             maxx = max(points, key=lambda x: x[0])[0]
             maxy = max(points, key=lambda x: x[1])[1]
-
+ """
             marg = 1
             # size of the image
             sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
@@ -511,7 +674,7 @@ class Piece:
                 pt2 = points[i+1]
                 cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
             
-            
+            blank_image1 = rotate_image(blank_image, angle)
                 
             # add "in" or "out" to the file name based on orientation
             if self.in_out[idx] == SideShape.IN:
@@ -519,6 +682,7 @@ class Piece:
             else:
                 filename = f"{self.name}_{idx+1}_out"
             cv2.imwrite(join('sides', filename +".png"),blank_image)
+            cv2.imwrite(join('sides', filename +".jpg"),blank_image1)
             
             
             f = open(join('sides', filename +".csv"),"w")
@@ -531,136 +695,27 @@ class Piece:
             print(e)
             return False     
 
-    def get_edge_points(self,img):
-        try:
-            ret, image = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)
-            pixel_matrix = image.tolist()
-            pixel_matrix = threshold_image(pixel_matrix)
-            # Create a copy of the input image
-            
-            for row in range(1,len(pixel_matrix)-1):
-                for col in range(1,len(pixel_matrix[row])-1):
-                    if(pixel_matrix[row][col] == [255,255,255]):
-                        if(pixel_matrix[row-1][col] == [0,0,0] or \
-                           pixel_matrix[row+1][col] == [0,0,0] or \
-                           pixel_matrix[row][col-1] == [0,0,0] or \
-                           pixel_matrix[row][col+1] == [0,0,0] ):
-                            pixel_matrix[row][col] = [128,128,128]
+    
+    
 
-            for row in range(1,len(pixel_matrix)-1):
-                for col in range(1,len(pixel_matrix[row])-1):
-                    if(pixel_matrix[row][col] == [128,128,128]):
-                        pixel_matrix[row][col] = [255,255,255]
-                    else:
-                        pixel_matrix[row][col] = [0,0,0]
-                                       
-            # file_name = join(self.contour_folder, self.name+".csv")
-            # f = open(file_name,"w")
-      
-            # for row in range(len(pixel_matrix)):
-            #     for col in range(len(pixel_matrix[row])):
-            #         if(pixel_matrix[row][col] == [255,255,255]):
-            #             f.write(f"{row},{col}\n")
-                
-            # f.close()
-            
-            return pixel_matrix
-        except Exception as e:
-            print(e)
+# function to rotate an image
+def rotate_image(image, angle):
+    # get the image size
+    image_size = (image.shape[1], image.shape[0])
+    # get the rotation matrix
+    rotation_matrix = cv2.getRotationMatrix2D((image_size[0] / 2, image_size[1] / 2), angle, 1.0)
+    # rotate the image
+    rotated_image = cv2.warpAffine(image, rotation_matrix, image_size, flags=cv2.INTER_LINEAR)
+     # Convert the rotated image to grayscale
+    gray_image = cv2.cvtColor(rotated_image, cv2.COLOR_BGR2GRAY)
 
-    def get_white_pixels(self,pixel_matrix):
-        try:
-           
-            pixels_list = []
-            for row in range(len(pixel_matrix)):
-                for col in range(len(pixel_matrix[row])):
-                    if(pixel_matrix[row][col] == [255,255,255]):
-                        pixels_list.append((row,col))
-           
-            # create a list of status for each pixel
-            status = []
-            left_index = []
-            right_index = []
-            for i in range(len(pixels_list)):
-                status.append(0)
-                left_index.append(-1)
-                right_index.append(-1)
-            
-            for i in range(len(pixels_list)):
-                links = get_adjacent_points(pixels_list,i)
-                if(len(links) == 2):
-                    status[i] = 1
-                    left_index[i] = links[0]
-                    right_index[i] = links[1]
-                elif(len(links) == 3):
-                    p0 = pixels_list[i]
-                    p1 = pixels_list[links[0]]
-                    p2 = pixels_list[links[1]]
-                    p3 = pixels_list[links[2]]
-                    if(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p2) == 1):
-                        status[i] = 1
-                        left_index[i] = links[0]
-                        right_index[i] = links[1]
-                    elif(pixel_distance(p0,p2) == 1) and (pixel_distance(p0,p3) == 1):
-                        status[i] = 1
-                        left_index[i] = links[1]
-                        right_index[i] = links[2]
-                    elif(pixel_distance(p0,p1) == 1) and (pixel_distance(p0,p3) == 1):
-                        status[i] = 1
-                        left_index[i] = links[0]
-                        right_index[i] = links[2]
-                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p2) == 2):
-                        status[i] = 1
-                        left_index[i] = links[2]
-                        if(pixel_distance(p1,p3) < pixel_distance(p2,p3)):
-                            right_index[i] = links[1]
-                        else:
-                            right_index[i] = links[0]
-                    elif(pixel_distance(p0,p1) == 2) and (pixel_distance(p0,p3) == 2):
-                        status[i] = 1
-                        left_index[i] = links[1]
-                        if(pixel_distance(p1,p2) < pixel_distance(p3,p2)):
-                            right_index[i] = links[2]
-                        else:
-                            right_index[i] = links[0]
-                    elif(pixel_distance(p0,p2) == 2) and (pixel_distance(p0,p3) == 2):
-                        status[i] = 1
-                        left_index[i] = links[0]
-                        if(pixel_distance(p2,p1) < pixel_distance(p3,p1)):
-                            right_index[i] = links[2]
-                        else:
-                            right_index[i] = links[1]
-                    else:
-                        print(f"error: {i} {links} {pixels_list[i]}")  
-                        return False
-                    
-                else:
-                    print(f"error: {i} {links} {pixels_list[i]}")
-                    return False
-            
-            # Return the list of white pixels
-            for i in range(len(pixels_list)):
-                if(status[i] == 0):
-                    print(f"Error in  index {i}")
-                    return False
-            
-            start_point = 0
-            next_point = left_index[0]
-            self.points_list.append(pixels_list[start_point])
-           
-            while(next_point != 0):
-                self.points_list.append(pixels_list[next_point])
-                new_point = next_pixel(next_point,start_point,left_index,right_index)
-                start_point = next_point
-                next_point = new_point
-                
-            
+    # Apply binary thresholding to convert the grayscale image to black and white
+    _, bw_image = cv2.threshold(gray_image, 127, 255, cv2.THRESH_BINARY)
+
+    # Return the black and white image
+    return bw_image
 
 
-            return True
-        except Exception as e:
-            print(e)
-            return False
 
 def next_pixel(next_point,start_point,left_index,right_index):
     # get the next pixel in the contour
@@ -740,3 +795,20 @@ def find_closest_point_index(points, target):
             closest_index = i
             closest_distance = distance
     return closest_index
+
+
+def make_black_transparent(image):
+    # Convert image to RGBA
+    rgba = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)
+    
+    # Create a mask for the black pixels
+    black = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+    black[np.where((image[:,:,0] == 0) & (image[:,:,1] == 0) & (image[:,:,2] == 0))] = 255
+    
+    # Set the alpha channel to the mask
+    rgba[:,:,3] = black
+    
+    # Convert back to BGR
+    result = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
+    
+    return result
