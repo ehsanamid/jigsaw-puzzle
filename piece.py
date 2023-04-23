@@ -56,36 +56,48 @@ class Piece:
 
     def camera_image_to_piece(self,input_filename: str,\
                               folder_name: str, stat: str)->bool:
+        piece_name = join(self.piece_folder, self.name+".png")
+        threshold_name = join(self.threshold_folder, self.name+".png")
+        
         img = cv2.imread(join(folder_name, input_filename))
-        img = img[1350:1750,1050:1450]
+
+        # 
+        # img = img[2000:2600,1300:1900]
+        img = img[1400:2000,1050:1650]
         # img = cv2.GaussianBlur(img,(3,3),0)
-        # img = cv2.GaussianBlur(img,(5,5),0)
+        img = cv2.GaussianBlur(img,(7,7),0)
         # cv2.imshow("img1",img)
         # cv2.waitKey(0)
 
         # flip the img horizontally and vertically
         img = cv2.flip(img, -1)
 
-        piece_name = join(self.piece_folder, self.name+".png")
-        threshold_name = join(self.threshold_folder, self.name+".png")
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        img = cv2.GaussianBlur(img,(3,3),0)
+        
         # img = cv2.bilateralFilter(img, 9, 75, 75)
 
         kernel_3x3 = np.ones((3,3),np.float32)/9
-        # kernel_7x7 = np.ones((7,7),np.float32)/49
-        # kernel_9x9 = np.ones((9,9),np.float32)/81
+        kernel_7x7 = np.ones((7,7),np.float32)/49
+        kernel_9x9 = np.ones((9,9),np.float32)/81
 
-        img = cv2.filter2D(img,-1,kernel_3x3)
-        # cv2.imshow("img2",img)
+        """ kernel_sharpening = np.array([[-1,-1,-1],\
+                                        [-1, 9,-1],\
+                                        [-1,-1,-1]]) """
+
+        gray1 = cv2.filter2D(gray,-1,kernel_9x9)
+        # img = cv2.filter2D(img,-1,kernel_sharpening)
+        # cv2.imshow("img2",img1)
         # cv2.waitKey(0)
-        # ret, thr = cv2.threshold(img, 180, 255, cv2.THRESH_BINARY_INV)  
-        ret, thr = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)  
+         
+        ret, thr = cv2.threshold(gray1, 120, 255, cv2.THRESH_BINARY)  
+        # cv2.imshow("thr",thr)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         
         cv2.imwrite(piece_name, img)
-        thr1 = cv2.GaussianBlur(thr,(3,3),0)
-        ret, thr2 = cv2.threshold(thr1, 100, 255, cv2.THRESH_BINARY) 
-        cv2.imwrite(threshold_name, thr2)
+        cv2.imwrite(threshold_name, thr)
 
         # pixel_matrix = self.get_edge_points(thr)
         # self.get_white_pixels(pixel_matrix)
