@@ -8,16 +8,23 @@ import cv2
 import math
 from dataclasses import dataclass, field
 from utils import get_line_through_points, distance_point_line_squared,\
-      distance,rotate_points,point_exists,slope_in_degrees,color_to_number
+      distance,rotate_points,point_exists,slope_in_degrees
 from side_extractor import rotation_matrix
 from side import Side   # dataclass
 from enum import Enum
 
 # enum for shape of each side
 class SideShape(Enum):
-    IN = 0
-    OUT = 1
-    UNDEFINED = 2
+    UNDEFINED = 0
+    IN = 1
+    OUT = 2
+    
+
+# enum for shape of each side
+class ShapeStatus(Enum):
+    Piece = 0
+    Edge = 1
+    Side = 2
 
 
 @dataclass
@@ -43,9 +50,6 @@ class Piece:
     
     def __post_init__(self):
         self.piece_file_name = self.name + ".jpg"
-        
-        # self.piece_folder_threshold = join(self.piece_folder_threshold, self.name)
-        # self.contour_folder = join(self.contour_folder, self.name)
         os.makedirs(self.piece_folder, exist_ok=True)
         os.makedirs(self.threshold_folder, exist_ok=True)
         os.makedirs(self.contour_folder, exist_ok=True)
@@ -53,79 +57,113 @@ class Piece:
         self.sides = []
 
 
-
     def camera_image_to_piece(self,input_filename: str,\
                               folder_name: str, stat: str)->bool:
-        piece_name = join(self.piece_folder, self.name+".png")
-        threshold_name = join(self.threshold_folder, self.name+".png")
-        
-        img = cv2.imread(join(folder_name, input_filename))
+        try:
+            piece_name = join(self.piece_folder, self.name+".png")
+            threshold_name = join(self.threshold_folder, self.name+".png")
+            img = cv2.imread(join(folder_name, input_filename))
 
-        # 
-        # img = img[2000:2600,1300:1900]
-        img = img[1400:2000,1050:1650]
-        # img = cv2.GaussianBlur(img,(3,3),0)
-        img = cv2.GaussianBlur(img,(7,7),0)
-        # cv2.imshow("img1",img)
-        # cv2.waitKey(0)
+            # 
+            img = img[2000:2600,1300:1900]
+            # img = img[1400:2000,1050:1650]
+            # img = cv2.GaussianBlur(img,(3,3),0)
+            img = cv2.GaussianBlur(img,(7,7),0)
+            # cv2.imshow("img1",img)
+            # cv2.waitKey(0)
 
-        # flip the img horizontally and vertically
-        img = cv2.flip(img, -1)
+            # flip the img horizontally and vertically
+            img = cv2.flip(img, -1)
 
-        # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        
-        # img = cv2.bilateralFilter(img, 9, 75, 75)
+            # Convert to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            
+            # img = cv2.bilateralFilter(img, 9, 75, 75)
 
-        kernel_3x3 = np.ones((3,3),np.float32)/9
-        kernel_7x7 = np.ones((7,7),np.float32)/49
-        kernel_9x9 = np.ones((9,9),np.float32)/81
+            kernel_3x3 = np.ones((3,3),np.float32)/9
+            kernel_7x7 = np.ones((7,7),np.float32)/49
+            kernel_9x9 = np.ones((9,9),np.float32)/81
 
-        """ kernel_sharpening = np.array([[-1,-1,-1],\
-                                        [-1, 9,-1],\
-                                        [-1,-1,-1]]) """
+            """ kernel_sharpening = np.array([[-1,-1,-1],\
+                                            [-1, 9,-1],\
+                                            [-1,-1,-1]]) """
 
-        gray1 = cv2.filter2D(gray,-1,kernel_9x9)
-        # img = cv2.filter2D(img,-1,kernel_sharpening)
-        # cv2.imshow("img2",img1)
-        # cv2.waitKey(0)
-         
-        ret, thr = cv2.threshold(gray1, 120, 255, cv2.THRESH_BINARY)  
-        # cv2.imshow("thr",thr)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        
-        cv2.imwrite(piece_name, img)
-        cv2.imwrite(threshold_name, thr)
+            gray1 = cv2.filter2D(gray,-1,kernel_9x9)
+            # img = cv2.filter2D(img,-1,kernel_sharpening)
+            # cv2.imshow("img2",img1)
+            # cv2.waitKey(0)
+                
+            ret, thr = cv2.threshold(gray1, 120, 255, cv2.THRESH_BINARY)  
+            # cv2.imshow("thr",thr)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            
+            cv2.imwrite(piece_name, img)
+            cv2.imwrite(threshold_name, thr)
 
-        # pixel_matrix = self.get_edge_points(thr)
-        # self.get_white_pixels(pixel_matrix)
+            # pixel_matrix = self.get_edge_points(thr)
+            # self.get_white_pixels(pixel_matrix)
 
+            return True
+        except Exception as e:
+            print(e)
+            return False    
+
+    
+    def find_corners(self)-> bool:
+        pixel_matrix = self.get_edge_points()
+        if(pixel_matrix is None):
+            return False
+        if(not(self.get_white_pixels(pixel_matrix))):
+            return False
+        if(self.contour_to_image() is False):
+            return False
+        if(self.find_corner() is False):
+            return False
+        if(self.order_points_clockwise() is False):
+            return False
+        if(self.fine_tune_corners() is False):
+            return False
+        if(self.find_shape_in_out() is False):
+            return False
+        if(self.shape_classification() is False):
+            return False
         return True
 
-    def get_edge_points(self,img):
+
+    def get_edge_points(self):
         try:
-            ret, image = cv2.threshold(img, 200, 255, cv2.THRESH_BINARY_INV)
+            threshold_name = join(self.threshold_folder, self.name+".png")
+            img = cv2.imread(threshold_name)
+            # Convert to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            ret, image = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+
+            # cv2.imshow("image",image) 
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+
             pixel_matrix = image.tolist()
-            pixel_matrix = threshold_image(pixel_matrix)
+            # pixel_matrix = threshold_image(pixel_matrix)
             # Create a copy of the input image
             
             for row in range(1,len(pixel_matrix)-1):
                 for col in range(1,len(pixel_matrix[row])-1):
-                    if(pixel_matrix[row][col] == [255,255,255]):
-                        if(pixel_matrix[row-1][col] == [0,0,0] or \
-                           pixel_matrix[row+1][col] == [0,0,0] or \
-                           pixel_matrix[row][col-1] == [0,0,0] or \
-                           pixel_matrix[row][col+1] == [0,0,0] ):
-                            pixel_matrix[row][col] = [128,128,128]
+                    if(pixel_matrix[row][col] == 255):
+                        if(pixel_matrix[row-1][col] == 0 or \
+                           pixel_matrix[row+1][col] == 0 or \
+                           pixel_matrix[row][col-1] == 0 or \
+                           pixel_matrix[row][col+1] == 0 ):
+                            pixel_matrix[row][col] = 128
 
             for row in range(1,len(pixel_matrix)-1):
                 for col in range(1,len(pixel_matrix[row])-1):
-                    if(pixel_matrix[row][col] == [128,128,128]):
-                        pixel_matrix[row][col] = [255,255,255]
+                    if(pixel_matrix[row][col] == 128):
+                        pixel_matrix[row][col] = 255
                     else:
-                        pixel_matrix[row][col] = [0,0,0]
+                        pixel_matrix[row][col] = 0
                                        
             # file_name = join(self.contour_folder, self.name+".csv")
             # f = open(file_name,"w")
@@ -140,6 +178,7 @@ class Piece:
             return pixel_matrix
         except Exception as e:
             print(e)
+            return None
 
 
     def get_white_pixels(self,pixel_matrix):
@@ -147,7 +186,7 @@ class Piece:
             pixels_list = []
             for row in range(len(pixel_matrix)):
                 for col in range(len(pixel_matrix[row])):
-                    if(pixel_matrix[row][col] == [255,255,255]):
+                    if(pixel_matrix[row][col] == 255):
                         pixels_list.append((row,col))
            
             # create a list of status for each pixel
@@ -241,23 +280,7 @@ class Piece:
             return False
 
 
-    def process_camera_image(self)->bool:
-        # if(self.contour_to_points(image=thr) is False):
-        #     return False    
-        if(self.contour_to_image() is False):
-            return False
-        if(self.find_corner() is False):
-            return False
-        if(self.order_points_clockwise() is False):
-            return False
-        if(self.fine_tune_corners() is False):
-            return False
-        if(self.find_shape_in_out() is False):
-            return False
-        if(self.shape_classification() is False):
-            return False
-        return True
-
+    
     # retunrs a list of points
     def image_to_list(self,image)->list:
         try:
@@ -783,8 +806,8 @@ def threshold_image(pixel_matrix):
     for row in range(len(pixel_matrix)):
         for col in range(len(pixel_matrix[row])):
             # If the pixel is not white, set it to black
-            if pixel_matrix[row][col] != [255, 255, 255]:
-                pixel_matrix[row][col] = [0,0,0]
+            if pixel_matrix[row][col] != 255:
+                pixel_matrix[row][col] = 0
             # else:
             #     pixel_matrix[row][col] = 0xffffff
     return pixel_matrix
