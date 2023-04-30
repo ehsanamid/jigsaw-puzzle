@@ -279,13 +279,45 @@ def extract_piece_from_camera_images(page_number: int, folder_name: str, df: pd.
     return df
    
     
-def find_corners(df: pd.DataFrame):
+def find_contours(df: pd.DataFrame):
     try:
         # loop through all records in df dataframe
         for index, row in df.iterrows():
             piecename = row['piece']
             status = ShapeStatus(row['status'])
             if(status == ShapeStatus.Piece):
+                piece = Piece(piecename)
+                if(piece.find_contour()):
+                    # update datafare row
+                    df.loc[index, 'status'] = ShapeStatus.Side.value
+                    df.loc[index, 'X1'] = piece.corners[0][0]
+                    df.loc[index, 'Y1'] = piece.corners[0][1]
+                    df.loc[index, 'IO1'] = piece.in_out[0].value
+                    df.loc[index, 'X2'] = piece.corners[1][0]
+                    df.loc[index, 'Y2'] = piece.corners[1][1]
+                    df.loc[index, 'IO2'] = piece.in_out[1].value
+                    df.loc[index, 'X3'] = piece.corners[2][0]
+                    df.loc[index, 'Y3'] = piece.corners[2][1]
+                    df.loc[index, 'IO3'] = piece.in_out[2].value
+                    df.loc[index, 'X4'] = piece.corners[3][0]
+                    df.loc[index, 'Y4'] = piece.corners[3][1]
+                    df.loc[index, 'IO4'] = piece.in_out[3].value
+                    df.to_csv("pieces.csv", index=False)
+                    print(f"{piecename} corners found\n")
+            
+        
+        
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
+def find_corners(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            status = ShapeStatus(row['status'])
+            if(status == ShapeStatus.Side):
                 piece = Piece(piecename)
                 if(piece.find_corners()):
                     # update datafare row
@@ -310,7 +342,6 @@ def find_corners(df: pd.DataFrame):
         # return df_pieces
     except Exception as e:
         print(str(e))
-
 
 
 
@@ -348,7 +379,8 @@ def main():
     # df_pieces = extract_piece_from_camera_images(page_number = 14,folder_name = "cam14", df=df_pieces)
     # df_pieces = extract_piece_from_camera_images(page_number = 15,folder_name = "cam15", df=df_pieces)
 
-    find_corners(df=df_pieces)
+    find_contours(df=df_pieces)
+    # find_corners(df=df_pieces)
     
     # df_pieces.to_csv('pieces.csv', index=False)
     # df_pieces = get_corners('pieces_threshold',df_pieces)

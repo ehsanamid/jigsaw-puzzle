@@ -65,8 +65,8 @@ class Piece:
             img = cv2.imread(join(folder_name, input_filename))
 
             # 
-            img = img[2000:2600,1300:1900]
-            # img = img[1400:2000,1050:1650]
+            # img = img[2000:2600,1300:1900]
+            img = img[1400:2000,1050:1650]
             # img = cv2.GaussianBlur(img,(3,3),0)
             img = cv2.GaussianBlur(img,(7,7),0)
             # cv2.imshow("img1",img)
@@ -95,7 +95,7 @@ class Piece:
             # cv2.waitKey(0)
                 
             ret, thr = cv2.threshold(gray1, 120, 255, cv2.THRESH_BINARY)  
-            # cv2.imshow("thr",thr)
+            # cv2.imshow(self.name,thr)
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
             
@@ -111,7 +111,7 @@ class Piece:
             return False    
 
     
-    def find_corners(self)-> bool:
+    def find_contour(self)-> bool:
         pixel_matrix = self.get_edge_points()
         if(pixel_matrix is None):
             return False
@@ -119,12 +119,15 @@ class Piece:
             return False
         if(self.contour_to_image() is False):
             return False
-        if(self.find_corner() is False):
+       
+        if(self.find_edge_corners() is False):
             return False
-        if(self.order_points_clockwise() is False):
-            return False
-        if(self.fine_tune_corners() is False):
-            return False
+        # if(self.find_corner() is False):
+        #     return False
+        # if(self.order_points_clockwise() is False):
+        #     return False
+        # if(self.fine_tune_corners() is False):
+        #     return False
         if(self.find_shape_in_out() is False):
             return False
         if(self.shape_classification() is False):
@@ -266,13 +269,13 @@ class Piece:
                 start_point = next_point
                 next_point = new_point
     
-            file_name = join(self.contour_folder, self.name+"_points.csv")
-            f = open(file_name,"w")
+            # file_name = join(self.contour_folder, self.name+"_points.csv")
+            # f = open(file_name,"w")
       
-            for pt in self.points_list:
-                f.write(f"{pt[0]},{pt[1]}\n")
+            # for pt in self.points_list:
+            #     f.write(f"{pt[0]},{pt[1]}\n")
                 
-            f.close()
+            # f.close()
 
             return True
         except Exception as e:
@@ -337,7 +340,71 @@ class Piece:
             for i in range(len(self.points_list) ):
                 self.points_list[i] = [self.points_list[i][0] - minx + margin, \
                         self.points_list[i][1] - miny + margin]
+        
+            file_name = join(self.contour_folder, self.name+".csv")
+            f = open(file_name,"w")
+            for p in self.points_list:
+                f.write(f"{p[0]},{p[1]}\n")
+            f.close()
+
+            # list of distacens between points and minx and miny
+            dist_list1 = [[distance(pt,[margin,margin]),pt] for pt in self.points_list]
+            # list of distacens between points and maxx and miny
+            dist_list2 = [[distance(pt,[sizex,margin]),pt] for pt in self.points_list]    
+            # list of distances between points and maxx and maxy
+            dist_list3 = [[distance(pt,[sizex,sizey]),pt] for pt in self.points_list]
+            # list of distances between points and minx and maxy
+            dist_list4 = [[distance(pt,[margin,sizey]),pt] for pt in self.points_list]
+
+            # get the index of minimum dist_list1
+            index1 = min(enumerate(dist_list1), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list2
+            index2 = min(enumerate(dist_list2), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list3
+            index3 = min(enumerate(dist_list3), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list4
+            index4 = min(enumerate(dist_list4), key=lambda x: x[1])[0]
+
+            self.corners_index = [index1,index2,index3,index4]
+            
+            
+            revers_order = True
+            for i in range(4):
+                if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
+                      (self.corners_index[(i+1)%4] < self.corners_index[(i+2)%4])):
+                    revers_order = False
+
+            if revers_order:
+                # rotate the self.point_list by self.corners_index[3]
+                self.points_list = self.points_list[self.corners_index[3]:] + \
+                                    self.points_list[:self.corners_index[3]]
+                # update self.corners_index
+                self.corners_index = [self.corners_index[0]-self.corners_index[3],\
+                                        self.corners_index[1]-self.corners_index[3],\
+                                        self.corners_index[2]-self.corners_index[3],\
+                                        self.corners_index[3]-self.corners_index[3]]
+                list_len = len(self.points_list)
+                # reverse self.points_list
+                self.points_list = self.points_list[::-1]
+                self.corners_index = [0,\
+                                        list_len - self.corners_index[0],\
+                                        list_len - self.corners_index[1],\
+                                        list_len - self.corners_index[2]]
                 
+            else:
+                # rotate the self.point_list by self.corners_index[0]
+                self.points_list = self.points_list[self.corners_index[0]:] + \
+                                    self.points_list[:self.corners_index[0]]
+                self.corners_index = [self.corners_index[0]-self.corners_index[0],\
+                                        self.corners_index[1]-self.corners_index[0],\
+                                        self.corners_index[2]-self.corners_index[0],\
+                                        self.corners_index[3]-self.corners_index[0]]
+            
+            self.corners = [self.points_list[self.corners_index[0]],\
+                            self.points_list[self.corners_index[1]],\
+                            self.points_list[self.corners_index[2]],\
+                            self.points_list[self.corners_index[3]]]  
+            
             for i in range(len(self.points_list) ):
                 index1 = i % len(self.points_list)
                 index2 = (i+1) % len(self.points_list)
@@ -356,20 +423,43 @@ class Piece:
             # cv2.drawContours(blank_image, new_points, -1, (255,255,255), 1)
             contour_name = join(self.contour_folder, self.name+".png")
             cv2.imwrite(contour_name,gray)
+            
             return True
         
         except Exception as e:
             print(str(e))
             return False
 
-     
+
+    def find_edge_corners(self)->bool:
+        try:
+            
+            contour_name = join(self.contour_folder, self.name+".png")
+            img = cv2.imread(contour_name)
+            
+            for pt in self.corners:
+                color2 = (0,0,255)
+                cv2.circle(img,pt,3,color=color2,thickness=1)
+                cv2.imshow(self.name,img)
+
+            full_key = cv2.waitKeyEx(0)
+            cv2.destroyWindow(self.name)
+            if full_key == 27:
+                return False
+            return True
+            
+        except Exception as e:
+            print(e)
+            return False
+                                    
+
     def find_corner(self)->bool:
         try:
             contour_name = join(self.contour_folder, self.name+".png")
             img = cv2.imread(contour_name)
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
-            corners = cv2.goodFeaturesToTrack(gray, 100, 0.15, 10)
+            corners = cv2.goodFeaturesToTrack(gray, 100, 0.15, 50)
             x = 0
             y = 0
             df = pd.DataFrame()
@@ -650,7 +740,7 @@ class Piece:
     def side_to_image(self, idx: int,points: list)->bool:
         try:
             # show_point(points)
-            oriatation = self.in_out[0].value
+            oriatation = self.in_out[0].value - 1
             
             points = rotate_points(points, \
                                 rotation_matrix[oriatation, idx], \
