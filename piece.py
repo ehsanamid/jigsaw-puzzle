@@ -138,6 +138,13 @@ class Piece:
     def get_edge_points(self):
         try:
             threshold_name = join(self.threshold_folder, self.name+".png")
+            img1 = cv2.imread(threshold_name, cv2.IMREAD_GRAYSCALE)
+            # corners1 = moravec_corner_detection(img1)
+            corners1 = harris_corner_detection(img=img1,k=0.06,window_size=7,threshold=0.08)
+            cv2.imshow('Corners', corners1)
+            cv2.waitKey(0)
+
+            
             img = cv2.imread(threshold_name)
             # Convert to grayscale
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -799,7 +806,7 @@ class Piece:
                 pt2 = points[i+1]
                 cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
             
-            blank_image1 = rotate_image(blank_image, angle)
+            # blank_image1 = rotate_image(blank_image, angle)
                 
             # add "in" or "out" to the file name based on orientation
             if self.in_out[idx] == SideShape.IN:
@@ -807,7 +814,7 @@ class Piece:
             else:
                 filename = f"{self.name}_{idx+1}_out"
             cv2.imwrite(join('sides', filename +".png"),blank_image)
-            cv2.imwrite(join('sides', filename +".jpg"),blank_image1)
+            # cv2.imwrite(join('sides', filename +".jpg"),blank_image1)
             
             
             f = open(join('sides', filename +".csv"),"w")
@@ -937,3 +944,169 @@ def make_black_transparent(image):
     result = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGR)
     
     return result
+
+
+
+
+def moravec_corner_detection(img, window_size=3, threshold=500):
+    # Compute image gradients in x and y directions
+    dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+    dy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Compute the sum of squared differences in all directions
+    h, w = img.shape
+    m = np.zeros((h, w))
+    for y in range(window_size//2, h-window_size//2):
+        for x in range(window_size//2, w-window_size//2):
+            min_ssd = float('inf')
+            for dy in [-1, 0, 1]:
+                for dx in [-1, 0, 1]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    ssd = np.sum((img[y:y+window_size, x:x+window_size] - img[y+dy:y+dy+window_size, x+dx:x+dx+window_size])**2)
+                    if ssd < min_ssd:
+                        min_ssd = ssd
+            m[y, x] = min_ssd
+    
+    # Threshold the corner response
+    corners = np.zeros((h, w), np.uint8)
+    corners[m > threshold] = 255
+    
+    return corners
+
+
+
+def moravec_corner_points(img, window_size=3, threshold=500):
+    h, w = img.shape
+    corners = np.zeros((h, w))
+    for y in range(window_size//2, h-window_size//2):
+        for x in range(window_size//2, w-window_size//2):
+            win = img[y-window_size//2:y+window_size//2+1, x-window_size//2:x+window_size//2+1]
+            min_diff = np.inf
+            for dx in [-1, 0, 1]:
+                for dy in [-1, 0, 1]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    shifted_win = img[y+dy-window_size//2:y+dy+window_size//2+1, x+dx-window_size//2:x+dx+window_size//2+1]
+                    diff = np.sum((win - shifted_win)**2)
+                    if diff < min_diff:
+                        min_diff = diff
+            if min_diff > threshold:
+                corners[y, x] = 1
+    corner_points = np.transpose(np.nonzero(corners))
+    return corner_points
+
+
+def harris_corner_detection(img, k=0.04, window_size=3, threshold=0.01):
+    # Compute image gradients in x and y directions
+    dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+    dy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Compute products of gradients
+    Ixx = dx**2
+    Ixy = dx*dy
+    Iyy = dy**2
+
+    # Compute sums of products of gradients within a window
+    kernel = np.ones((window_size, window_size), np.float32) / (window_size**2)
+    Sxx = cv2.filter2D(Ixx, -1, kernel)
+    Sxy = cv2.filter2D(Ixy, -1, kernel)
+    Syy = cv2.filter2D(Iyy, -1, kernel)
+
+    # Compute the Harris corner response
+    det = Sxx*Syy - Sxy**2
+    trace = Sxx + Syy
+    R = det - k*trace**2
+
+    # Threshold the corner response
+    corners = np.zeros((img.shape[0], img.shape[1]), np.uint8)
+    corners[R > threshold*np.max(R)] = 255
+
+    return corners
+
+
+
+def harris_corner_points(img, k=0.04, window_size=3, threshold=0.01):
+    # Compute image gradients in x and y directions
+    dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+    dy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Compute products of gradients at each pixel
+    Ixx = dx**2
+    Ixy = dx*dy
+    Iyy = dy**2
+    
+    # Compute the sums of products of gradients at each pixel over a local window
+    ksize = (window_size, window_size)
+    Sxx = cv2.boxFilter(Ixx, -1, ksize, normalize=False)
+    Sxy = cv2.boxFilter(Ixy, -1, ksize, normalize=False)
+    Syy = cv2.boxFilter(Iyy, -1, ksize, normalize=False)
+    
+    # Compute the corner response function at each pixel
+    det = Sxx*Syy - Sxy**2
+    trace = Sxx + Syy
+    response = det - k*trace**2
+    
+    # Threshold the corner response and compute local maxima
+    corners = np.zeros_like(img)
+    response[response < threshold*np.max(response)] = 0
+    local_maxima = cv2.dilate(response, None)
+    corners[local_maxima == response] = 255
+    
+    # Find the coordinates of the corner points
+    corner_points = np.transpose(np.nonzero(corners))
+    
+    return corner_points
+
+
+def shi_tomasi_corner_detection(img, max_corners=23, quality_level=0.01, min_distance=10):
+    # Compute image gradients in x and y directions
+    dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+    dy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+
+    # Compute products of gradients
+    Ixx = dx**2
+    Ixy = dx*dy
+    Iyy = dy**2
+
+    # Compute sums of products of gradients within a window
+    kernel = np.ones((3, 3), np.float32) / 9
+    Sxx = cv2.filter2D(Ixx, -1, kernel)
+    Sxy = cv2.filter2D(Ixy, -1, kernel)
+    Syy = cv2.filter2D(Iyy, -1, kernel)
+
+    # Compute the Shi-Tomasi corner response
+    R = np.zeros_like(img)
+    for y in range(img.shape[0]):
+        for x in range(img.shape[1]):
+            M = np.array([[Sxx[y, x], Sxy[y, x]], [Sxy[y, x], Syy[y, x]]])
+            eigenvalues = np.linalg.eigvals(M)
+            R[y, x] = np.min(eigenvalues)
+
+    # Find the strongest corners
+    corners = cv2.goodFeaturesToTrack(R, maxCorners=max_corners, qualityLevel=quality_level, minDistance=min_distance)
+
+    # Draw circles around the corners
+    for corner in corners:
+        x, y = corner[0]
+        cv2.circle(img, (x, y), 3, (0, 255, 0), -1)
+
+    return img
+
+
+
+# Shi-Tomasi corner detection
+def shi_tomasi_corner_points(img, max_corners=100, quality_level=0.01, min_distance=10):
+    # Compute the eigenvalues of the structure tensor at each pixel
+    eigvals = cv2.cornerEigenValsAndVecs(img, blockSize=3, ksize=3)
+    eigvals = eigvals.reshape(img.shape[0], img.shape[1], 3, 2)
+    eigvals = np.sort(eigvals, axis=2)
+    # Compute the minimum eigenvalue at each pixel
+    min_eigvals = eigvals[:, :, 0]
+    # Compute the corner response function at each pixel
+    response = np.zeros_like(img)
+    response = cv2.normalize(min_eigvals, response, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    # Find the coordinates of the local maxima in the corner response function
+    corner_points = cv2.goodFeaturesToTrack(response, maxCorners=max_corners, qualityLevel=quality_level, minDistance=min_distance)
+    corner_points = corner_points.reshape(-1, 2)
+    return corner_points
