@@ -279,7 +279,7 @@ def extract_piece_from_camera_images(page_number: int, folder_name: str, df: pd.
     return df
    
     
-def find_contours(df: pd.DataFrame):
+def find_corners(df: pd.DataFrame,width: int, height: int):
     try:
         # loop through all records in df dataframe
         for index, row in df.iterrows():
@@ -287,21 +287,21 @@ def find_contours(df: pd.DataFrame):
             status = ShapeStatus(row['status'])
             if(status == ShapeStatus.Piece):
                 piece = Piece(piecename)
-                if(piece.find_contour()):
+                if(piece.find_contour(width=width, height=height)):
                     # update datafare row
                     df.loc[index, 'status'] = ShapeStatus.Side.value
                     df.loc[index, 'X1'] = piece.corners[0][0]
                     df.loc[index, 'Y1'] = piece.corners[0][1]
-                    df.loc[index, 'IO1'] = piece.in_out[0].value
+                    # df.loc[index, 'IO1'] = piece.in_out[0].value
                     df.loc[index, 'X2'] = piece.corners[1][0]
                     df.loc[index, 'Y2'] = piece.corners[1][1]
-                    df.loc[index, 'IO2'] = piece.in_out[1].value
+                    # df.loc[index, 'IO2'] = piece.in_out[1].value
                     df.loc[index, 'X3'] = piece.corners[2][0]
                     df.loc[index, 'Y3'] = piece.corners[2][1]
-                    df.loc[index, 'IO3'] = piece.in_out[2].value
+                    # df.loc[index, 'IO3'] = piece.in_out[2].value
                     df.loc[index, 'X4'] = piece.corners[3][0]
                     df.loc[index, 'Y4'] = piece.corners[3][1]
-                    df.loc[index, 'IO4'] = piece.in_out[3].value
+                    # df.loc[index, 'IO4'] = piece.in_out[3].value
                     df.to_csv("pieces.csv", index=False)
                     print(f"{piecename} corners found\n")
             
@@ -311,7 +311,7 @@ def find_contours(df: pd.DataFrame):
     except Exception as e:
         print(str(e))
 
-def find_corners(df: pd.DataFrame):
+def find_sides(df: pd.DataFrame):
     try:
         # loop through all records in df dataframe
         for index, row in df.iterrows():
@@ -346,7 +346,19 @@ def find_corners(df: pd.DataFrame):
 
 
 
-# function to show the image with corners
+# read all images in a folder and get the maximum size of the image
+def get_max_size(folder_name):
+    max_width = 0
+    max_height = 0
+    for filename in os.listdir(folder_name):
+        if filename.endswith(".png"):
+            img = cv2.imread(os.path.join(folder_name, filename))
+            height, width, channels = img.shape
+            if(width > max_width):
+                max_width = width
+            if(height > max_height):
+                max_height = height
+    return max_width, max_height
 
 
 
@@ -379,7 +391,9 @@ def main():
     # df_pieces = extract_piece_from_camera_images(page_number = 14,folder_name = "cam14", df=df_pieces)
     # df_pieces = extract_piece_from_camera_images(page_number = 15,folder_name = "cam15", df=df_pieces)
 
-    find_contours(df=df_pieces)
+    # max_width, max_height = get_max_size(folder_name="contours")
+
+    find_corners(df=df_pieces,width=420, height=420)
     # find_corners(df=df_pieces)
     
     # df_pieces.to_csv('pieces.csv', index=False)
