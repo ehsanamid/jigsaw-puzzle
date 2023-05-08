@@ -121,12 +121,12 @@ class Piece:
         if(self.contour_to_image(width=width, height=height) is False):
             return False
         
-        # if(self.show_edge_corners() is False):
-        #     return False
+        if(self.show_edge_corners() is False):
+            return False
         # # if(self.find_corner() is False):
         # #     return False
-        # # if(self.order_points_clockwise() is False):
-        # #     return False
+        if(self.order_points_clockwise() is False):
+            return False
         # # if(self.fine_tune_corners() is False):
         # #     return False
         # if(self.find_shape_in_out() is False):
@@ -387,7 +387,7 @@ class Piece:
 
         self.corners_index = [index1,index2,index3,index4]
         
-        
+        """ 
         revers_order = True
         for i in range(4):
             if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
@@ -425,8 +425,8 @@ class Piece:
                         self.points_list[self.corners_index[2]],\
                         self.points_list[self.corners_index[3]]]  
 
-
-        angle_threshold = 80
+ """
+        angle_threshold = 45
         # distance_threshold = 20
         file_name = join(self.contour_folder, self.name+"_angle.csv")
         f = open(file_name,"w")
@@ -752,11 +752,14 @@ class Piece:
             print(e)
             return False """
 
-    def find_shape_in_out(self)->bool:
+    def find_shape_in_out(self,X1,Y1,X2,Y2,X3,Y3,X4,Y4)->bool:
         try:
+        
+            # find the center of the xy
+            corners = [[X1,Y1],[X2,Y2],[X3,Y3],[X4,Y4]]
             # get the center of the xy
-            center = [sum(pt[0] for pt in self.corners) // len(self.corners),\
-                       sum(pt[1] for pt in self.corners) // len(self.corners)]
+            center = [sum(pt[0] for pt in corners) // len(corners),\
+                       sum(pt[1] for pt in corners) // len(corners)]
 
             for i in range(4):
                 if(i == 3):
