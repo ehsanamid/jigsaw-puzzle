@@ -327,20 +327,20 @@ def find_shape_in_out(df: pd.DataFrame):
                 X4 = df.loc[index, 'X4']
                 Y4 = df.loc[index, 'Y4']
                 piece = Piece(piecename)
-                if(piece.find_shape_in_out(X1,Y1,X2,Y2,X3,Y3,X4,Y4)):
+                if(piece.clasification(X1,Y1,X2,Y2,X3,Y3,X4,Y4)):
                     # update datafare row
-                    # df.loc[index, 'status'] = ShapeStatus.Edge.value
-                    # df.loc[index, 'X1'] = piece.corners[0][0]
-                    # df.loc[index, 'Y1'] = piece.corners[0][1]
+                    df.loc[index, 'status'] = ShapeStatus.Edge.value
+                    df.loc[index, 'X1'] = piece.corners[0][0]
+                    df.loc[index, 'Y1'] = piece.corners[0][1]
                     df.loc[index, 'IO1'] = piece.in_out[0].value
-                    # df.loc[index, 'X2'] = piece.corners[1][0]
-                    # df.loc[index, 'Y2'] = piece.corners[1][1]
+                    df.loc[index, 'X2'] = piece.corners[1][0]
+                    df.loc[index, 'Y2'] = piece.corners[1][1]
                     df.loc[index, 'IO2'] = piece.in_out[1].value
-                    # df.loc[index, 'X3'] = piece.corners[2][0]
-                    # df.loc[index, 'Y3'] = piece.corners[2][1]
+                    df.loc[index, 'X3'] = piece.corners[2][0]
+                    df.loc[index, 'Y3'] = piece.corners[2][1]
                     df.loc[index, 'IO3'] = piece.in_out[2].value
-                    # df.loc[index, 'X4'] = piece.corners[3][0]
-                    # df.loc[index, 'Y4'] = piece.corners[3][1]
+                    df.loc[index, 'X4'] = piece.corners[3][0]
+                    df.loc[index, 'Y4'] = piece.corners[3][1]
                     df.loc[index, 'IO4'] = piece.in_out[3].value
                     df.to_csv("pieces.csv", index=False)
                     print(f"{piecename} corners found\n")
@@ -435,7 +435,10 @@ def main():
 
     # max_width, max_height = get_max_size(folder_name="contours")
 
-    find_corners(df=df_pieces,width=420, height=420)
+    # find_corners(df=df_pieces,width=420, height=420)
+
+    find_shape_in_out(df=df_pieces)
+
     # find_corners(df=df_pieces)
     
     # df_pieces.to_csv('pieces.csv', index=False)
