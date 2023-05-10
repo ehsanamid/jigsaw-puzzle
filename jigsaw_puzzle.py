@@ -5,11 +5,7 @@ import numpy as np
 import pandas as pd
 import cv2
 from piece import Piece, SideShape, ShapeStatus
-from side_extractor import process_piece1,get_image_geometry
 import math
-from PIL import Image
-
-
 
 
 
@@ -31,8 +27,6 @@ def find_similarity(big_image,piece_io:list, small_image,side_io: int):
         return max(similarity), similarity.index(max(similarity))+1
     except Exception as e:
         print(str(e))
-
-
 
 
 def find_the_best_match():
@@ -158,7 +152,23 @@ def get_geometry(points):
     try:
         geometry = []
 
-        
+        # remove the first 5 points and the last 5 points
+        points = points[5:-5]
+
+        # distance between the first point and the last point
+        dist = utils.distance(points[0], points[-1])
+        geometry.append(dist)
+
+        #get the line between the first point and the last point
+        line = LineString(points[0], points[-1])
+
+        # find the point that has the maximum distance from the line
+        max_dist = 0
+        for point in points:
+            dist = line.distance(point)
+            if(dist > max_dist):
+                max_dist = dist
+        geometry.append(max_dist)
         # get the center of the xy
         center = np.mean(points, axis=0)
         # add the center to the geometry as two float values
@@ -276,7 +286,7 @@ def find_geometries(df: pd.DataFrame):
         print(str(e))
 
 
-import math
+
 
 def euclidean_distance(vec1, vec2):
     """Calculates the Euclidean distance between two vectors."""
