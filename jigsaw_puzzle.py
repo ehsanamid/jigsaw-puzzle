@@ -6,7 +6,7 @@ import pandas as pd
 import cv2
 from piece import Piece, SideShape, ShapeStatus
 import math
-
+import utils
 
 
 
@@ -160,43 +160,26 @@ def get_geometry(points):
         geometry.append(dist)
 
         #get the line between the first point and the last point
-        line = LineString(points[0], points[-1])
+        line = utils.get_line_through_points(points[0], points[-1])
 
         # find the point that has the maximum distance from the line
         max_dist = 0
+        max_point = points[0]
         for point in points:
-            dist = line.distance(point)
+            dist = utils.distance_point_line_squared(a_b_c=line, x0_y0=point)
             if(dist > max_dist):
                 max_dist = dist
+                max_point = point
         geometry.append(max_dist)
-        # get the center of the xy
-        center = np.mean(points, axis=0)
-        # add the center to the geometry as two float values
-        geometry.append(center[0])
-        geometry.append(center[1])
-        
-        # get the distance between the center and the first point
-        # dist = distance(points[0], center)
-        # geometry.append(dist)
-        # get the angle between the center and the first point
-        angle = np.arctan2(points[0][1] - center[1], points[0][0] - center[0])
-        # convert the angle to degree
-        angle = np.degrees(angle)
-        # geometry.append(angle)
-         # get the angle between the center and the last point
-        angle = np.arctan2(points[-1][1] - center[1], points[-1][0] - center[0])
-        # convert the angle to degree
-        angle = np.degrees(angle)
-        # geometry.append(angle)
 
-        # get the maximum x value
-        max_x = max(points, key=lambda x: x[0])[0]
-        # geometry.append(max_x.astype(float))
-        geometry.append(max_x)
         
-        # get points with maximum y and the index of the point
-        max_y = max(points, key=lambda x: x[1])
-        geometry.append(max_y[1])
+
+        inter = utils.find_lines_interpolate(points_list=points)
+        geometry.append(inter[0])
+        geometry.append(inter[1])
+
+
+        
 
         # return index of points that have y value equal to max_y
         idx = [j for j, x in enumerate(points) if x[1] == max_y[1]]
@@ -571,7 +554,7 @@ def main():
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
     
-    find_geometries()
+    find_geometries(df_sides)
     
     
     # find_the_best_matchs()
