@@ -150,14 +150,18 @@ def find_the_best_matchs():
 
 def get_geometry(points):
     try:
-        geometry = []
+        geometry = {}
 
         # remove the first 5 points and the last 5 points
         points = points[5:-5]
 
         # distance between the first point and the last point
-        dist = utils.distance(points[0], points[-1])
-        geometry.append(dist)
+        width = utils.distance(points[0], points[-1])
+        if(width == 0):
+            geometry['Width'] = 1000
+        else:
+            geometry["Width"] = width
+    
 
         #get the line between the first point and the last point
         line = utils.get_line_through_points(points[0], points[-1])
@@ -170,34 +174,21 @@ def get_geometry(points):
             if(dist > max_dist):
                 max_dist = dist
                 max_point = point
-        geometry.append(max_dist)
+        geometry["Height"] = max_dist
+        # find the intercept point of ortagonal line from max_point and line
+        x1,y1 = utils.find_intersection(max_point[0], max_point[1],\
+            line[0], line[1], line[2])
 
-        
+        symetry = utils.distance(points[0], (x1,y1)) / width
+        geometry['symetry'] = symetry
 
         inter = utils.find_lines_interpolate(points_list=points)
-        geometry.append(inter[0])
-        geometry.append(inter[1])
-
-
+        geometry["m"] = inter[0]
+        geometry["c"] = inter[1]
         
-
-        # return index of points that have y value equal to max_y
-        idx = [j for j, x in enumerate(points) if x[1] == max_y[1]]
-
-        # index of the first point in idx
-        max_y_idx1 =idx[0]
-        X1 = points[max_y_idx1][0]
-        # geometry.append(X1)
-
-        # index of the last point in idx
-        max_y_idx2 =idx[-1]
-        X2 = points[max_y_idx2][0]
-        geometry.append((X1+X2)//2)
-        # get the distance between the two points
-        dist = X2 - X1
-        geometry.append(dist)
+       
         
-        critical_points = []
+        """ critical_points = []
         for i in range(max_x):
             # return index of points that have x value equal to i
             idx = [j for j, x in enumerate(points) if x[0] == i]
@@ -233,7 +224,7 @@ def get_geometry(points):
                 geometry.append(Y1)
                 # geometry.append(Y2)
                 # geometry.append(Y2 - Y1)        
-
+ """
         # return the geometry
         return geometry
     except Exception as e:
@@ -259,12 +250,15 @@ def find_geometries(df: pd.DataFrame):
             geometry = get_geometry(points_list)
             if(geometry is None):
                 continue
-                
-                
-            df.to_csv("sides.csv", index=False)
             
-          
-    
+            df.loc[index, 'Width'] = geometry['Width']
+            df.loc[index, 'Height'] = geometry['Width']
+            df.loc[index, 'symetry'] = geometry['symetry']
+            df.loc[index, 'm'] = geometry['m']
+            df.loc[index, 'c'] = geometry['c']
+            df.to_csv("sides.csv", index=False)
+
+
     except Exception as e:
         print(str(e))
 

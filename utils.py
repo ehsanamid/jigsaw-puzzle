@@ -522,3 +522,17 @@ def find_lines_interpolate(points_list):
     
     return (m, c)
 
+def find_intersection(x, y, a, b, c):
+    if(b == 0):
+        return -(c/a), y
+    if(a == 0):
+        return x,-(c/b)
+
+    slope = -(a/b)
+    start = -(c/b)
+    slope_perpendicular = -1 / slope
+    start_perpendicular = y - (slope_perpendicular * x)
+    intersection_x = (start_perpendicular - start) / (slope - slope_perpendicular)
+    intersection_y = slope * intersection_x + start
+    return intersection_x, intersection_y
+    
