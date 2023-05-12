@@ -10,6 +10,8 @@ def distance_point_line_squared(a_b_c : tuple, x0_y0 : tuple):
     x0 ,y0 = x0_y0
     return abs(a*x0 + b*y0 + c) / (a**2 + b**2)**0.5
 
+
+
 # function to return distance between two points
 def distance(x1_y1, x2_y2):
     """
@@ -507,3 +509,16 @@ def find_lines_interpolate_and_angle(points_list, point_index):
     # Return the slopes, y-intercepts, and angle of the lines
     # return ((m_prev, c_prev), (m_next, c_next), angle)
     return angle
+
+def find_lines_interpolate(points_list):
+    
+    
+    # Create an array of x-values and y-values for the next/previous points
+    x_list = np.array([point[0] for point in points_list])
+    y_list = np.array([point[1] for point in points_list])
+
+    # Interpolate linearly between the next/previous points
+    m, c = np.polyfit(x_list, y_list, 1)
+    
+    return (m, c)
+

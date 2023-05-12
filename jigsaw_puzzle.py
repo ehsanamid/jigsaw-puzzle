@@ -5,12 +5,8 @@ import numpy as np
 import pandas as pd
 import cv2
 from piece import Piece, SideShape, ShapeStatus
-from side_extractor import process_piece1,get_image_geometry
 import math
-from PIL import Image
-
-
-
+import utils
 
 
 
@@ -31,8 +27,6 @@ def find_similarity(big_image,piece_io:list, small_image,side_io: int):
         return max(similarity), similarity.index(max(similarity))+1
     except Exception as e:
         print(str(e))
-
-
 
 
 def find_the_best_match():
@@ -153,57 +147,163 @@ def find_the_best_matchs():
                     file.write(temp_string)
     except Exception as e:
         print(str(e))
-            
 
-def find_geometries():
-    # Example usage
+def get_geometry(points):
     try:
-        list_len = 0
-        cols = []
-        # return list of csv files in sides folder
+        geometry = []
+
+        # remove the first 5 points and the last 5 points
+        points = points[5:-5]
+
+        # distance between the first point and the last point
+        dist = utils.distance(points[0], points[-1])
+        geometry.append(dist)
+
+        #get the line between the first point and the last point
+        line = utils.get_line_through_points(points[0], points[-1])
+
+        # find the point that has the maximum distance from the line
+        max_dist = 0
+        max_point = points[0]
+        for point in points:
+            dist = utils.distance_point_line_squared(a_b_c=line, x0_y0=point)
+            if(dist > max_dist):
+                max_dist = dist
+                max_point = point
+        geometry.append(max_dist)
+
         
-        file_names = os.listdir('sides')
-        file_names.sort()
 
-        for file_name in file_names:
-            if(file_name.endswith(".csv")):
-                side_name = file_name.split(".")[0]
-                # remove "_in" or "_out" from side_name
-                # if(side_name.endswith("_in")):
-                #     s_name = side_name[:-3]
-                #     s_orientation = 0
-                # elif(side_name.endswith("_out")):
-                #     s_name = side_name[:-4]
-                #     s_orientation = 1
-                geometry = get_image_geometry(join('sides', file_name))
-                if(geometry is None):
-                    continue
-                geometry.insert(0, side_name)
-                if(list_len == 0):
-                    list_len = len(geometry)
-                    # cols.append('Name')
-                    # for i in range(1,list_len):
-                    #     cols.append('Col'+str(i))
-                    # create a list of column names from 1 to list_len
-                    cols = ['Col'+ str(c) for c in range(1, list_len)]
-                    cols.insert(0, 'Name')
-                    df = pd.DataFrame(columns = cols)
-                    df.loc[len(df)] = geometry
-                    print(file_name)
-                else:
-                    df.loc[len(df)] = geometry
-                    print(file_name)
-        df.to_csv("geometry.csv", index=False)
+        inter = utils.find_lines_interpolate(points_list=points)
+        geometry.append(inter[0])
+        geometry.append(inter[1])
 
 
+        
+
+        # return index of points that have y value equal to max_y
+        idx = [j for j, x in enumerate(points) if x[1] == max_y[1]]
+
+        # index of the first point in idx
+        max_y_idx1 =idx[0]
+        X1 = points[max_y_idx1][0]
+        # geometry.append(X1)
+
+        # index of the last point in idx
+        max_y_idx2 =idx[-1]
+        X2 = points[max_y_idx2][0]
+        geometry.append((X1+X2)//2)
+        # get the distance between the two points
+        dist = X2 - X1
+        geometry.append(dist)
+        
+        critical_points = []
+        for i in range(max_x):
+            # return index of points that have x value equal to i
+            idx = [j for j, x in enumerate(points) if x[0] == i]
+            # if there is more than one point with x value equal to i
+            blocks = []
+            start = 0
+            segment_len = 0
+            if len(idx) > 1:
+                start = idx[0]
+                segment_len = 0
+                for j in range(len(idx)-1):
+                    # get the distance between the two points
+                    dist = points[idx[j+1]][1] - points[idx[j]][1]
                     
+                    if dist < 2:
+                        segment_len += 1
+                    else:
+                        blocks.append([start, segment_len])
+                        start = idx[j+1]
+                        segment_len = 0
+                blocks.append([start, segment_len])        
+            if (len(blocks) ==2):
+                critical_points.append(blocks)
+            
+        for blocks in critical_points:
+            for block in blocks:
+                start_idx = block[0]
+                block_len = block[1]
+                X1 = points[start_idx][0]
+                Y1 = points[start_idx][1]
+                Y2 = points[start_idx + block_len][1]
+                geometry.append(X1)
+                geometry.append(Y1)
+                # geometry.append(Y2)
+                # geometry.append(Y2 - Y1)        
 
-                # temp_string = temp_string[:-1]+"\n"
-                # file.write(temp_string)
+        # return the geometry
+        return geometry
+    except Exception as e:
+        print(str(e))
+        return None
+         
+
+
+
+
+def find_geometries(df: pd.DataFrame):
+    try:
+        for index, row in df.iterrows():
+            sidename = row['Side']
+            file_name = join('sides', sidename+".csv")
+            f = open(file_name,"r")
+            # read list of x and y from the file and put them in points_list
+            points_list = []
+            for line in f:
+                x,y = line.split(",")
+                points_list.append([int(x),int(y)])
+            f.close()
+            geometry = get_geometry(points_list)
+            if(geometry is None):
+                continue
+                
+                
+            df.to_csv("sides.csv", index=False)
+            
+          
+    
     except Exception as e:
         print(str(e))
 
 
+
+
+def euclidean_distance(vec1, vec2):
+    """Calculates the Euclidean distance between two vectors."""
+    squared_diff = [(x - y) ** 2 for x, y in zip(vec1, vec2)]
+    return math.sqrt(sum(squared_diff))
+
+def similarity_score(obj1, obj2):
+    """Calculates the similarity score between two objects."""
+    distance = euclidean_distance(obj1, obj2)
+    similarity = 1 / (1 + distance)
+    return similarity
+
+# Example list of objects with numerical properties
+objects = [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+]
+
+# Calculate similarity between all object pairs
+num_objects = len(objects)
+similarity_matrix = [[0] * num_objects for _ in range(num_objects)]
+
+for i in range(num_objects):
+    for j in range(i + 1, num_objects):
+        obj1 = objects[i]
+        obj2 = objects[j]
+        similarity = similarity_score(obj1, obj2)
+        similarity_matrix[i][j] = similarity
+        similarity_matrix[j][i] = similarity
+
+# Print the similarity matrix
+for row in similarity_matrix:
+    print(row)
 
 # function to read image from camer folder and copy the piece in the pieces folder
 """ def read_camera_image(piece_file_name: str,input_filename: str,\
@@ -415,7 +515,7 @@ def get_max_size(folder_name):
 def main():
     
     df_pieces = pd.read_csv('pieces.csv')
-    # df_sides = pd.read_csv('sides.csv')
+    df_sides = pd.read_csv('sides.csv')
 
     # df_pieces = extract_piece_from_camera_images(page_number = 1,folder_name = "cam01", df=df_pieces)
     # df_pieces = extract_piece_from_camera_images(page_number = 2,folder_name = "cam02", df=df_pieces)
@@ -437,7 +537,7 @@ def main():
 
     # find_corners(df=df_pieces,width=420, height=420)
 
-    find_shape_in_out(df=df_pieces)
+    # find_shape_in_out(df=df_pieces)
 
     # find_corners(df=df_pieces)
     
@@ -454,7 +554,7 @@ def main():
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
     
-    """ find_geometries() """
+    find_geometries(df_sides)
     
     
     # find_the_best_matchs()
