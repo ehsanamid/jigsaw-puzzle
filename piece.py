@@ -448,9 +448,7 @@ class Piece:
             else:
                 temp_list.append([0,0])
         f.close()
-        
-                   
-    
+            
         
          # list of distacens between points and minx and miny
         dist_list1 = [utils.distance(pt,[0,0]) for pt in temp_list]
@@ -533,7 +531,18 @@ class Piece:
             
         # cv2.destroyWindow(self.name)
         return True
-
+    def show_corners(self,X1,Y1,X2,Y2,X3,Y3,X4,Y4):
+        file_name = join(self.contour_folder, self.name+".csv")
+        f = open(file_name,"r")
+        # read list of x and y from the file and put them in points_list
+        self.points_list = []
+        for line in f:
+            x,y = line.split(",")
+            self.points_list.append([int(x),int(y)])
+        f.close()
+        self.corners = [[X1,Y1],[X2,Y2],[X3,Y3],[X4,Y4]]
+        self.fine_tune_corners()
+        self.show_edge_corners()
 
     def show_edge_corners(self)->bool:
         try:
@@ -708,9 +717,11 @@ class Piece:
             point = self.corners[idx]
 
             # find the point in point_list that is closest to point
-            closest_index = utils.find_closest_point_index(self.points_list, point)
-            self.corners_index.insert(idx, closest_index)
-            x,y = self.points_list[closest_index]
+            # closest_index = utils.find_closest_point_index(self.points_list, point)
+            # self.corners_index.insert(idx, closest_index)
+            # x,y = self.points_list[closest_index]
+            x = point[0]
+            y = point[1]
             
             while utils.point_exists(self.points_list, x+a,y+b):
                 x = x+a

@@ -522,6 +522,9 @@ def find_lines_interpolate(points_list):
     
     return (m, c)
 
+def find_orthagonal(x, y, a, b, c):
+    return (-b,a, b*x-a*y)
+    
 def find_intersection(x, y, a, b, c):
     if(b == 0):
         return -(c/a), y

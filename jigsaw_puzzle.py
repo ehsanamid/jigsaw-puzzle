@@ -168,12 +168,22 @@ def get_geometry(points):
 
         # find the point that has the maximum distance from the line
         max_dist = 0
-        max_point = points[0]
-        for point in points:
-            dist = utils.distance_point_line_squared(a_b_c=line, x0_y0=point)
-            if(dist > max_dist):
-                max_dist = dist
-                max_point = point
+        max_point = []
+
+        # put disatnce from line to each point in a list
+        dist = [utils.distance_point_line_squared(a_b_c=line, x0_y0=point) for point in points] 
+
+        # find the max distance and its index
+        max_dist = max(dist)
+        
+        # return list of indexes of max_dist
+        max_index = [i for i, j in enumerate(dist) if j == max_dist]
+
+        geometry['head_flatness'] = len(max_index)
+
+        # find the middle point of the max_dist points
+        max_point = points[int(len(max_index)/2)]
+
         geometry["Height"] = max_dist
         # find the intercept point of ortagonal line from max_point and line
         x1,y1 = utils.find_intersection(max_point[0], max_point[1],\
@@ -405,6 +415,29 @@ def find_corners(df: pd.DataFrame,width: int, height: int):
     except Exception as e:
         print(str(e))
 
+def show_corners(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            status = ShapeStatus(row['status'])
+            X1 = df.loc[index, 'X1']
+            Y1 = df.loc[index, 'Y1']
+            X2 = df.loc[index, 'X2']
+            Y2 = df.loc[index, 'Y2']
+            X3 = df.loc[index, 'X3']
+            Y3 = df.loc[index, 'Y3']
+            X4 = df.loc[index, 'X4']
+            Y4 = df.loc[index, 'Y4']
+            if(status == ShapeStatus.Edge):
+                piece = Piece(piecename)
+                piece.show_corners(X1,Y1,X2,Y2,X3,Y3,X4,Y4)
+                    
+        
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
 def find_shape_in_out(df: pd.DataFrame):
     try:
         # loop through all records in df dataframe
@@ -547,7 +580,7 @@ def main():
     # transparent1()
     # df_pieces = get_corners('pieces_threshold',df_pieces)
     # df_pieces.to_csv('pieces.csv', index=False)
-    
+    #show_corners(df_pieces)
     find_geometries(df_sides)
     
     
