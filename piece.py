@@ -366,180 +366,193 @@ class Piece:
             print(str(e))
             return False
 
+    def load_points_list(self):
+        try:
+            file_name = join(self.contour_folder, self.name+".csv")
+            f = open(file_name,"r")
+            self.points_list = []
+            for line in f:
+                self.points_list.append([int(x) for x in line.split(",")])
+            f.close()
+            return True
+        except Exception as e:
+            print(str(e))
+            return False        
+
     def get_corners_from_pointlist(self, img, sizex, sizey)->bool:
-        # list of distacens between points and minx and miny
-        dist_list1 = [[utils.distance(pt,[0,0]),pt] for pt in self.points_list]
-        # list of distacens between points and maxx and miny
-        dist_list2 = [[utils.distance(pt,[sizex,0]),pt] for pt in self.points_list]    
-        # list of distances between points and maxx and maxy
-        dist_list3 = [[utils.distance(pt,[sizex,sizey]),pt] for pt in self.points_list]
-        # list of distances between points and minx and maxy
-        dist_list4 = [[utils.distance(pt,[0,sizey]),pt] for pt in self.points_list]
+        try:
+            self.load_points_list()
+            # list of distacens between points and minx and miny
+            dist_list1 = [[utils.distance(pt,[0,0]),pt] for pt in self.points_list]
+            # list of distacens between points and maxx and miny
+            dist_list2 = [[utils.distance(pt,[sizex,0]),pt] for pt in self.points_list]    
+            # list of distances between points and maxx and maxy
+            dist_list3 = [[utils.distance(pt,[sizex,sizey]),pt] for pt in self.points_list]
+            # list of distances between points and minx and maxy
+            dist_list4 = [[utils.distance(pt,[0,sizey]),pt] for pt in self.points_list]
 
-        # get the index of minimum dist_list1
-        index1 = min(enumerate(dist_list1), key=lambda x: x[1])[0]
-        # get the index of minimum dist_list2
-        index2 = min(enumerate(dist_list2), key=lambda x: x[1])[0]
-        # get the index of minimum dist_list3
-        index3 = min(enumerate(dist_list3), key=lambda x: x[1])[0]
-        # get the index of minimum dist_list4
-        index4 = min(enumerate(dist_list4), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list1
+            index1 = min(enumerate(dist_list1), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list2
+            index2 = min(enumerate(dist_list2), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list3
+            index3 = min(enumerate(dist_list3), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list4
+            index4 = min(enumerate(dist_list4), key=lambda x: x[1])[0]
 
-        self.corners_index = [index1,index2,index3,index4]
-        
-        """ 
-        revers_order = True
-        for i in range(4):
-            if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
-                    (self.corners_index[(i+1)%4] < self.corners_index[(i+2)%4])):
-                revers_order = False
-
-        if revers_order:
-            # rotate the self.point_list by self.corners_index[3]
-            self.points_list = self.points_list[self.corners_index[3]:] + \
-                                self.points_list[:self.corners_index[3]]
-            # update self.corners_index
-            self.corners_index = [self.corners_index[0]-self.corners_index[3],\
-                                    self.corners_index[1]-self.corners_index[3],\
-                                    self.corners_index[2]-self.corners_index[3],\
-                                    self.corners_index[3]-self.corners_index[3]]
-            list_len = len(self.points_list)
-            # reverse self.points_list
-            self.points_list = self.points_list[::-1]
-            self.corners_index = [0,\
-                                    list_len - self.corners_index[0],\
-                                    list_len - self.corners_index[1],\
-                                    list_len - self.corners_index[2]]
+            self.corners_index = [index1,index2,index3,index4]
             
-        else:
-            # rotate the self.point_list by self.corners_index[0]
-            self.points_list = self.points_list[self.corners_index[0]:] + \
-                                self.points_list[:self.corners_index[0]]
-            self.corners_index = [self.corners_index[0]-self.corners_index[0],\
-                                    self.corners_index[1]-self.corners_index[0],\
-                                    self.corners_index[2]-self.corners_index[0],\
-                                    self.corners_index[3]-self.corners_index[0]]
-        
-        self.corners = [self.points_list[self.corners_index[0]],\
-                        self.points_list[self.corners_index[1]],\
-                        self.points_list[self.corners_index[2]],\
-                        self.points_list[self.corners_index[3]]]  
+            """ 
+            revers_order = True
+            for i in range(4):
+                if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
+                        (self.corners_index[(i+1)%4] < self.corners_index[(i+2)%4])):
+                    revers_order = False
 
- """
-        angle_threshold = 45
-        # distance_threshold = 20
-        file_name = join(self.contour_folder, self.name+"_angle.csv")
-        f = open(file_name,"w")
-        
-        # df = pd.DataFrame()
-        # size of points_list
-        list_len = len(self.points_list)
-        temp_list = []
-        for i, p in enumerate(self.points_list):
-            angle = utils.find_lines_interpolate_and_angle(self.points_list,i)
-            
-            # new_row = pd.DataFrame({'Index': i,'X':p[0],\
-            #                         'Y':p[1],'angle':angle, },index=[0])
-            # df = pd.concat([df, new_row], axis=0, ignore_index=True)    
-            # df = df.append(new_row)
-            f.write(f"{p[0]},{p[1]},{angle}\n")
-            if(angle > angle_threshold):
-                temp_list.append(p)
+            if revers_order:
+                # rotate the self.point_list by self.corners_index[3]
+                self.points_list = self.points_list[self.corners_index[3]:] + \
+                                    self.points_list[:self.corners_index[3]]
+                # update self.corners_index
+                self.corners_index = [self.corners_index[0]-self.corners_index[3],\
+                                        self.corners_index[1]-self.corners_index[3],\
+                                        self.corners_index[2]-self.corners_index[3],\
+                                        self.corners_index[3]-self.corners_index[3]]
+                list_len = len(self.points_list)
+                # reverse self.points_list
+                self.points_list = self.points_list[::-1]
+                self.corners_index = [0,\
+                                        list_len - self.corners_index[0],\
+                                        list_len - self.corners_index[1],\
+                                        list_len - self.corners_index[2]]
+                
             else:
-                temp_list.append([0,0])
-        f.close()
+                # rotate the self.point_list by self.corners_index[0]
+                self.points_list = self.points_list[self.corners_index[0]:] + \
+                                    self.points_list[:self.corners_index[0]]
+                self.corners_index = [self.corners_index[0]-self.corners_index[0],\
+                                        self.corners_index[1]-self.corners_index[0],\
+                                        self.corners_index[2]-self.corners_index[0],\
+                                        self.corners_index[3]-self.corners_index[0]]
             
+            self.corners = [self.points_list[self.corners_index[0]],\
+                            self.points_list[self.corners_index[1]],\
+                            self.points_list[self.corners_index[2]],\
+                            self.points_list[self.corners_index[3]]]  
+
+    """
+            angle_threshold = 45
+            # distance_threshold = 20
+            file_name = join(self.contour_folder, self.name+"_angle.csv")
+            f = open(file_name,"w")
+            
+            # df = pd.DataFrame()
+            # size of points_list
+            list_len = len(self.points_list)
+            temp_list = []
+            for i, p in enumerate(self.points_list):
+                angle = utils.find_lines_interpolate_and_angle(self.points_list,i)
+                
+                # new_row = pd.DataFrame({'Index': i,'X':p[0],\
+                #                         'Y':p[1],'angle':angle, },index=[0])
+                # df = pd.concat([df, new_row], axis=0, ignore_index=True)    
+                # df = df.append(new_row)
+                f.write(f"{p[0]},{p[1]},{angle}\n")
+                if(angle > angle_threshold):
+                    temp_list.append(p)
+                else:
+                    temp_list.append([0,0])
+            f.close()
+                
+            
+            # list of distacens between points and minx and miny
+            dist_list1 = [utils.distance(pt,[0,0]) for pt in temp_list]
+            # list of distacens between points and maxx and miny
+            dist_list2 = [utils.distance(pt,[sizex,0]) for pt in temp_list]    
+            # list of distances between points and maxx and maxy
+            dist_list3 = [utils.distance(pt,[sizex,sizey]) for pt in temp_list]
+            # list of distances between points and minx and maxy
+            dist_list4 = [utils.distance(pt,[0,sizey]) for pt in temp_list]
+
+            # get the index of minimum dist_list1 for non zero values
+            non_zero_list = list(filter(lambda x: x != 0, dist_list1))
+            # Use min to find the minimum value of the non-zero elements
+            min_non_zero = min(non_zero_list)
+            # Use index to get the index of the minimum value of the non-zero elements
+            index1 = dist_list1.index(min_non_zero)
+            # check if index1 is a list get the first element otherwise return index1
+            index1 = index1[0] if isinstance(index1, list) else index1
+
+            # get the index of minimum dist_list1 for non zero values
+            non_zero_list = list(filter(lambda x: x != 0, dist_list2))
+            # Use min to find the minimum value of the non-zero elements
+            min_non_zero = min(non_zero_list)
+            # Use index to get the index of the minimum value of the non-zero elements
+            index2 = dist_list2.index(min_non_zero)
+            # check if index1 is a list get the first element otherwise return index2
+            index2 = index2[0] if isinstance(index2, list) else index2
         
-         # list of distacens between points and minx and miny
-        dist_list1 = [utils.distance(pt,[0,0]) for pt in temp_list]
-        # list of distacens between points and maxx and miny
-        dist_list2 = [utils.distance(pt,[sizex,0]) for pt in temp_list]    
-        # list of distances between points and maxx and maxy
-        dist_list3 = [utils.distance(pt,[sizex,sizey]) for pt in temp_list]
-        # list of distances between points and minx and maxy
-        dist_list4 = [utils.distance(pt,[0,sizey]) for pt in temp_list]
+            # get the index of minimum dist_list1 for non zero values
+            non_zero_list = list(filter(lambda x: x != 0, dist_list3))
+            # Use min to find the minimum value of the non-zero elements
+            min_non_zero = min(non_zero_list)
+            # Use index to get the index of the minimum value of the non-zero elements
+            index3 = dist_list3.index(min_non_zero)
+            # check if index1 is a list get the first element otherwise return index3
+            index3 = index3[0] if isinstance(index3, list) else index3
 
-        # get the index of minimum dist_list1 for non zero values
-        non_zero_list = list(filter(lambda x: x != 0, dist_list1))
-        # Use min to find the minimum value of the non-zero elements
-        min_non_zero = min(non_zero_list)
-        # Use index to get the index of the minimum value of the non-zero elements
-        index1 = dist_list1.index(min_non_zero)
-        # check if index1 is a list get the first element otherwise return index1
-        index1 = index1[0] if isinstance(index1, list) else index1
-
-        # get the index of minimum dist_list1 for non zero values
-        non_zero_list = list(filter(lambda x: x != 0, dist_list2))
-        # Use min to find the minimum value of the non-zero elements
-        min_non_zero = min(non_zero_list)
-        # Use index to get the index of the minimum value of the non-zero elements
-        index2 = dist_list2.index(min_non_zero)
-        # check if index1 is a list get the first element otherwise return index2
-        index2 = index2[0] if isinstance(index2, list) else index2
-       
-        # get the index of minimum dist_list1 for non zero values
-        non_zero_list = list(filter(lambda x: x != 0, dist_list3))
-        # Use min to find the minimum value of the non-zero elements
-        min_non_zero = min(non_zero_list)
-        # Use index to get the index of the minimum value of the non-zero elements
-        index3 = dist_list3.index(min_non_zero)
-        # check if index1 is a list get the first element otherwise return index3
-        index3 = index3[0] if isinstance(index3, list) else index3
-
-        # get the index of minimum dist_list1 for non zero values
-        non_zero_list = list(filter(lambda x: x != 0, dist_list4))
-        # Use min to find the minimum value of the non-zero elements
-        min_non_zero = min(non_zero_list)
-        # Use index to get the index of the minimum value of the non-zero elements
-        index4 = dist_list4.index(min_non_zero)
-        # check if index1 is a list get the first element otherwise return index4
-        index4 = index4[0] if isinstance(index4, list) else index4
+            # get the index of minimum dist_list1 for non zero values
+            non_zero_list = list(filter(lambda x: x != 0, dist_list4))
+            # Use min to find the minimum value of the non-zero elements
+            min_non_zero = min(non_zero_list)
+            # Use index to get the index of the minimum value of the non-zero elements
+            index4 = dist_list4.index(min_non_zero)
+            # check if index1 is a list get the first element otherwise return index4
+            index4 = index4[0] if isinstance(index4, list) else index4
 
 
+            
+
+            self.corners_index = [index1,index2,index3,index4]
+            self.corners = [self.points_list[self.corners_index[0]],\
+                            self.points_list[self.corners_index[1]],\
+                            self.points_list[self.corners_index[2]],\
+                            self.points_list[self.corners_index[3]]]  
+            
+            # print(df)
+            # ########
+            # # l = len(corners)
+            # output_list = []
+            # count = 0
+            # for index, row in df.iterrows():
+            #     x = int(row['X'])
+            #     y = int(row['Y'])
+            #     xy = (x,y)
+                
+            #     color2 = (0,0,255)
+            #     cv2.circle(img,xy,3,color=color2,thickness=1)
+            #     cv2.imshow(self.name,img)
+            #     full_key = cv2.waitKeyEx(0)
+            #     # print(f"Key pressed {full_key}\n")
+            #     if full_key == 110:
+            #         continue
+            #     if full_key == 120:
+            #         break
+            #     count += 1
+            #     output_list.append(xy)
+            #     if(count == 4):
+            #         break
+                
+                
+            # cv2.destroyWindow(self.name)
+            return True
+        except Exception as e:
+            print(f"Error in show_edge_corners {e}")
+            return False
         
 
-        self.corners_index = [index1,index2,index3,index4]
-        self.corners = [self.points_list[self.corners_index[0]],\
-                        self.points_list[self.corners_index[1]],\
-                        self.points_list[self.corners_index[2]],\
-                        self.points_list[self.corners_index[3]]]  
-        
-        # print(df)
-        # ########
-        # # l = len(corners)
-        # output_list = []
-        # count = 0
-        # for index, row in df.iterrows():
-        #     x = int(row['X'])
-        #     y = int(row['Y'])
-        #     xy = (x,y)
-            
-        #     color2 = (0,0,255)
-        #     cv2.circle(img,xy,3,color=color2,thickness=1)
-        #     cv2.imshow(self.name,img)
-        #     full_key = cv2.waitKeyEx(0)
-        #     # print(f"Key pressed {full_key}\n")
-        #     if full_key == 110:
-        #         continue
-        #     if full_key == 120:
-        #         break
-        #     count += 1
-        #     output_list.append(xy)
-        #     if(count == 4):
-        #         break
-            
-            
-        # cv2.destroyWindow(self.name)
-        return True
     def show_corners(self,X1,Y1,X2,Y2,X3,Y3,X4,Y4):
-        file_name = join(self.contour_folder, self.name+".csv")
-        f = open(file_name,"r")
-        # read list of x and y from the file and put them in points_list
-        self.points_list = []
-        for line in f:
-            x,y = line.split(",")
-            self.points_list.append([int(x),int(y)])
-        f.close()
+        self.load_points_list()
         self.corners = [[X1,Y1],[X2,Y2],[X3,Y3],[X4,Y4]]
         self.fine_tune_corners()
         self.show_edge_corners()
@@ -828,14 +841,7 @@ class Piece:
         try:
             
             # find the center of the xy
-            file_name = join(self.contour_folder, self.name+".csv")
-            f = open(file_name,"r")
-            # read list of x and y from the file and put them in points_list
-            self.points_list = []
-            for line in f:
-                x,y = line.split(",")
-                self.points_list.append([int(x),int(y)])
-            f.close()
+            self.load_points_list()
             
 
             self.corners = [[X1,Y1],[X2,Y2],[X3,Y3],[X4,Y4]]

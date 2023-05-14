@@ -484,7 +484,7 @@ def find_lines_interpolate_and_angle(points_list, point_index):
     list_size = len(points_list)
     next_points = []
     prev_points = []
-    for i in range(10):
+    for i in range(40):
         next_points.append(points_list[(point_index + i) % list_size])
         prev_points.append(points_list[(list_size + point_index - i) % list_size])
 
