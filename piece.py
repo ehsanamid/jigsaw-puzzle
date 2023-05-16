@@ -357,7 +357,7 @@ class Piece:
             contour_name = join(self.contour_folder, self.name+".png")
             cv2.imwrite(contour_name,gray)
 
-            self.get_corners_from_pointlist(img=gray,sizex=width, sizey=height)
+            self.get_corners_from_pointlist(sizex=width, sizey=height)
             self.fine_tune_corners()
             
             return True
@@ -379,7 +379,7 @@ class Piece:
             print(str(e))
             return False        
 
-    def get_corners_from_pointlist(self, img, sizex, sizey)->bool:
+    def get_corners_from_pointlist(self, sizex, sizey)->bool:
         try:
             self.load_points_list()
             # list of distacens between points and minx and miny

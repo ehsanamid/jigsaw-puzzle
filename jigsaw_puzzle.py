@@ -382,7 +382,18 @@ def extract(page_number: int, folder_name: str, df: pd.DataFrame):
 
     return df
    
-    
+def get_corners_from_pointlist(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            piece = Piece(piecename)
+            piece.get_corners_from_pointlist(420, 420)
+                    
+    except Exception as e:
+        print(str(e))
+
+
 def find_corners(df: pd.DataFrame,width: int, height: int):
     try:
         # loop through all records in df dataframe
@@ -562,6 +573,7 @@ def main():
 
     # max_width, max_height = get_max_size(folder_name="contours")
 
+    get_corners_from_pointlist(df=df_pieces)
     find_corners(df=df_pieces,width=420, height=420)
 
     # find_shape_in_out(df=df_pieces)
