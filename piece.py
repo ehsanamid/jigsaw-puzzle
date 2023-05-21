@@ -58,7 +58,7 @@ class Piece:
         self.sides = []
 
 
-    def camera_image_to_piece(self,input_filename: str,\
+    def camera_image_to_threshold(self,input_filename: str,\
                               folder_name: str, stat: str)->bool:
         try:
             piece_name = join(self.piece_folder, self.name+".png")
@@ -86,37 +86,35 @@ class Piece:
             kernel_7x7 = np.ones((7,7),np.float32)/49
             kernel_9x9 = np.ones((9,9),np.float32)/81
 
-            """ kernel_sharpening = np.array([[-1,-1,-1],\
-                                            [-1, 9,-1],\
-                                            [-1,-1,-1]]) """
-
             gray1 = cv2.filter2D(gray,-1,kernel_9x9)
-            # img = cv2.filter2D(img,-1,kernel_sharpening)
-            # cv2.imshow("img2",img1)
-            # cv2.waitKey(0)
-                
             ret, thr = cv2.threshold(gray1, 120, 255, cv2.THRESH_BINARY)  
-            # cv2.imshow(self.name,thr)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
             
             cv2.imwrite(piece_name, img)
             cv2.imwrite(threshold_name, thr)
 
-            # pixel_matrix = self.get_edge_points(thr)
-            # self.get_white_pixels(pixel_matrix)
-
+            
             return True
         except Exception as e:
             print(e)
             return False    
 
     
-    def find_contour(self,width: int, height: int)-> bool:
+    def threshold_to_contours(self,width: int, height: int)-> bool:
         pixel_matrix = self.get_edge_points()
         if(pixel_matrix is None):
             return False
-        if(not(self.get_white_pixels(pixel_matrix))):
+        if(self.get_white_pixels(pixel_matrix) is False):
+            return False
+        if(self.contour_to_image(width=width, height=height) is False):
+            return False
+        
+        return True
+
+    def contour_to_corner(self,width: int, height: int)-> bool:
+        pixel_matrix = self.get_edge_points()
+        if(pixel_matrix is None):
+            return False
+        if(self.get_white_pixels(pixel_matrix) is False):
             return False
         if(self.contour_to_image(width=width, height=height) is False):
             return False
@@ -357,8 +355,8 @@ class Piece:
             contour_name = join(self.contour_folder, self.name+".png")
             cv2.imwrite(contour_name,gray)
 
-            self.get_corners_from_pointlist(sizex=width, sizey=height)
-            self.fine_tune_corners()
+            # self.get_corners_from_pointlist(sizex=width, sizey=height)
+            # self.fine_tune_corners()
             
             return True
         
@@ -402,45 +400,7 @@ class Piece:
 
             self.corners_index = [index1,index2,index3,index4]
             
-            """ 
-            revers_order = True
-            for i in range(4):
-                if((self.corners_index[i%4] < self.corners_index[(i+1)%4]) and \
-                        (self.corners_index[(i+1)%4] < self.corners_index[(i+2)%4])):
-                    revers_order = False
-
-            if revers_order:
-                # rotate the self.point_list by self.corners_index[3]
-                self.points_list = self.points_list[self.corners_index[3]:] + \
-                                    self.points_list[:self.corners_index[3]]
-                # update self.corners_index
-                self.corners_index = [self.corners_index[0]-self.corners_index[3],\
-                                        self.corners_index[1]-self.corners_index[3],\
-                                        self.corners_index[2]-self.corners_index[3],\
-                                        self.corners_index[3]-self.corners_index[3]]
-                list_len = len(self.points_list)
-                # reverse self.points_list
-                self.points_list = self.points_list[::-1]
-                self.corners_index = [0,\
-                                        list_len - self.corners_index[0],\
-                                        list_len - self.corners_index[1],\
-                                        list_len - self.corners_index[2]]
-                
-            else:
-                # rotate the self.point_list by self.corners_index[0]
-                self.points_list = self.points_list[self.corners_index[0]:] + \
-                                    self.points_list[:self.corners_index[0]]
-                self.corners_index = [self.corners_index[0]-self.corners_index[0],\
-                                        self.corners_index[1]-self.corners_index[0],\
-                                        self.corners_index[2]-self.corners_index[0],\
-                                        self.corners_index[3]-self.corners_index[0]]
             
-            self.corners = [self.points_list[self.corners_index[0]],\
-                            self.points_list[self.corners_index[1]],\
-                            self.points_list[self.corners_index[2]],\
-                            self.points_list[self.corners_index[3]]]  
-
-    """
             angle_threshold = 45
             # distance_threshold = 20
             file_name = join(self.contour_folder, self.name+"_angle.csv")

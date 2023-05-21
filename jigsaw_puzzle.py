@@ -340,7 +340,7 @@ for row in similarity_matrix:
  """
 
 # function to read image from camer folder and copy the piece in the pieces folder
-def extract(page_number: int, folder_name: str, df: pd.DataFrame):
+def camera_image_to_threshold(page_number: int, folder_name: str, df: pd.DataFrame):
     filenames = os.listdir(folder_name)
     filenames.sort()
     i = 1
@@ -358,7 +358,7 @@ def extract(page_number: int, folder_name: str, df: pd.DataFrame):
         # status = df.loc[df['piece'] == piece_file_name, 'status'].iloc[0]
         status = ShapeStatus.Piece
         piece = Piece(piece_file_name)
-        if(piece.camera_image_to_piece(filename,folder_name,status)):  
+        if(piece.camera_image_to_threshold(filename,folder_name,status)):  
             print(f"{piece_file_name} added\n")
             new_row = pd.DataFrame({'piece':piece_file_name, \
             'status':str(status.value), \
@@ -394,7 +394,19 @@ def get_corners_from_pointlist(df: pd.DataFrame):
         print(str(e))
 
 
-def find_corners(df: pd.DataFrame,width: int, height: int):
+def threshold_to_contours(df: pd.DataFrame,width: int, height: int):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            piece = Piece(piecename)
+            piece.threshold_to_contours(width=width, height=height)
+                
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
+def contour_to_corner(df: pd.DataFrame,width: int, height: int):
     try:
         # loop through all records in df dataframe
         for index, row in df.iterrows():
@@ -402,7 +414,7 @@ def find_corners(df: pd.DataFrame,width: int, height: int):
             status = ShapeStatus(row['status'])
             if(status == ShapeStatus.Piece):
                 piece = Piece(piecename)
-                if(piece.find_contour(width=width, height=height)):
+                if(piece.threshold_to_contours(width=width, height=height)):
                     # update datafare row
                     df.loc[index, 'status'] = ShapeStatus.Side.value
                     df.loc[index, 'X1'] = piece.corners[0][0]
@@ -555,46 +567,30 @@ def main():
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
 
-    df_pieces = extract(page_number = 1,folder_name = "cam01", df=df_pieces)
-    df_pieces = extract(page_number = 2,folder_name = "cam02", df=df_pieces)
-    df_pieces = extract(page_number = 3,folder_name = "cam03", df=df_pieces)
-    df_pieces = extract(page_number = 4,folder_name = "cam04", df=df_pieces)
-    df_pieces = extract(page_number = 5,folder_name = "cam05", df=df_pieces)
-    df_pieces = extract(page_number = 6,folder_name = "cam06", df=df_pieces)
-    df_pieces = extract(page_number = 7,folder_name = "cam07", df=df_pieces)
-    df_pieces = extract(page_number = 8,folder_name = "cam08", df=df_pieces)
-    df_pieces = extract(page_number = 9,folder_name = "cam09", df=df_pieces)
-    df_pieces = extract(page_number = 10,folder_name = "cam10", df=df_pieces)
-    df_pieces = extract(page_number = 11,folder_name = "cam11", df=df_pieces)
-    df_pieces = extract(page_number = 12,folder_name = "cam12", df=df_pieces)
-    df_pieces = extract(page_number = 13,folder_name = "cam13", df=df_pieces)
-    df_pieces = extract(page_number = 14,folder_name = "cam14", df=df_pieces)
-    df_pieces = extract(page_number = 15,folder_name = "cam15", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 1,folder_name = "cam01", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 2,folder_name = "cam02", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 3,folder_name = "cam03", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 4,folder_name = "cam04", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 5,folder_name = "cam05", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 6,folder_name = "cam06", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 7,folder_name = "cam07", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 8,folder_name = "cam08", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 9,folder_name = "cam09", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 10,folder_name = "cam10", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 11,folder_name = "cam11", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 12,folder_name = "cam12", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 13,folder_name = "cam13", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 14,folder_name = "cam14", df=df_pieces)
+    # df_pieces = camera_image_to_threshold(page_number = 15,folder_name = "cam15", df=df_pieces)
 
     # max_width, max_height = get_max_size(folder_name="contours")
-
+    threshold_to_contours(df=df_pieces,width=420, height=420)  
+""" 
     get_corners_from_pointlist(df=df_pieces)
-    find_corners(df=df_pieces,width=420, height=420)
-
-    # find_shape_in_out(df=df_pieces)
-
-    
-    
-    # df_pieces.to_csv('pieces.csv', index=False)
-    # df_pieces = get_corners('pieces_threshold',df_pieces)
-    
-    # # show_image_with_corners('pieces_threshold',df_pieces)
-
-    # df_pieces = detect_side_images(df_pieces,"pieces_threshold","sides")
-
-    # df_pieces.to_csv('pieces.csv', index=False)
-    # find_geometries()
-    # transparent1()
-    # df_pieces = get_corners('pieces_threshold',df_pieces)
-    # df_pieces.to_csv('pieces.csv', index=False)
-    #show_corners(df_pieces)
+    find_corners(df=df_pieces,width=420, height=420)  
+    show_corners(df_pieces)
     find_geometries(df_sides)
-    
+     """
     
     # find_the_best_matchs()
 
