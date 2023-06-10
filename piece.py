@@ -98,6 +98,30 @@ class Piece:
             print(e)
             return False    
 
+    def threshold_to_jpg(self):
+        try:
+            threshold_name = join(self.threshold_folder, self.name+".png")
+            transparent_name = join(self.threshold_folder, self.name+".jpg")
+            img = cv2.imread(threshold_name)
+            cv2.imwrite(transparent_name,img)
+        except Exception as e:
+            print(e)
+            return False 
+        
+    def threshold_to_transparent(self):
+        try:
+            threshold_name = join(self.threshold_folder, self.name+".png")
+            transparent_name = join("transparent", self.name+".png")
+            img = cv2.imread(threshold_name)
+            # Convert to grayscale
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            ret, image = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+            cv2.imwrite(transparent_name,image)
+        except Exception as e:
+            print(e)
+            return False 
+    
     
     def threshold_to_contours(self,width: int, height: int)-> bool:
         pixel_matrix = self.get_edge_points()

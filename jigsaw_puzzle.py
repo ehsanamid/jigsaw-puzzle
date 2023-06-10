@@ -7,8 +7,47 @@ import cv2
 from piece import Piece, SideShape, ShapeStatus
 import math
 import utils
+import tkinter as tk
 
 
+import cv2
+import numpy as np
+
+def find_similarity(image1, image2):
+  """
+  Finds the similarity between two images.
+
+  Args:
+    image1: The first image.
+    image2: The second image.
+
+  Returns:
+    The similarity score between the two images.
+  """
+
+  # Convert the images to NumPy arrays.
+  image1_array = np.array(image1)
+  image2_array = np.array(image2)
+
+  # Calculate the Euclidean distance between the two images.
+  distance = np.linalg.norm(image1_array - image2_array)
+
+  # Return the similarity score, which is 1 minus the Euclidean distance.
+  return 1 - distance
+
+def main():
+  # Load the images.
+  image1 = cv2.imread('image1.png')
+  image2 = cv2.imread('image2.png')
+
+  # Find the similarity between the two images.
+  similarity_score = find_similarity(image1, image2)
+
+  # Print the similarity score.
+  print('Similarity score:', similarity_score)
+
+if __name__ == '__main__':
+  main()
 
 
 def find_similarity(big_image,piece_io:list, small_image,side_io: int):
@@ -406,6 +445,30 @@ def threshold_to_contours(df: pd.DataFrame,width: int, height: int):
     except Exception as e:
         print(str(e))
 
+def threshold_to_transparent(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            piece = Piece(piecename)
+            piece.threshold_to_transparent()
+                
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
+def threshold_to_jpg(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            piece = Piece(piecename)
+            piece.threshold_to_jpg()
+                
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
 def contour_to_corner(df: pd.DataFrame,width: int, height: int):
     try:
         # loop through all records in df dataframe
@@ -567,6 +630,7 @@ def main():
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
 
+    threshold_to_jpg(df=df_pieces)
     # df_pieces = camera_image_to_threshold(page_number = 1,folder_name = "cam01", df=df_pieces)
     # df_pieces = camera_image_to_threshold(page_number = 2,folder_name = "cam02", df=df_pieces)
     # df_pieces = camera_image_to_threshold(page_number = 3,folder_name = "cam03", df=df_pieces)
@@ -584,7 +648,9 @@ def main():
     # df_pieces = camera_image_to_threshold(page_number = 15,folder_name = "cam15", df=df_pieces)
 
     # max_width, max_height = get_max_size(folder_name="contours")
-    threshold_to_contours(df=df_pieces,width=420, height=420)  
+    # threshold_to_contours(df=df_pieces,width=420, height=420)  
+    # threshold_to_transparent(df=df_pieces) 
+    
 """ 
     get_corners_from_pointlist(df=df_pieces)
     find_corners(df=df_pieces,width=420, height=420)  
@@ -593,6 +659,9 @@ def main():
      """
     
     # find_the_best_matchs()
+
+    
+
 
 if __name__ == "__main__":
     main()
