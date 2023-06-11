@@ -13,17 +13,17 @@ import tkinter as tk
 import cv2
 import numpy as np
 
-def find_similarity(image1, image2):
-  """
-  Finds the similarity between two images.
+""" def find_similarity(image1, image2):
+  
+#   Finds the similarity between two images.
 
-  Args:
-    image1: The first image.
-    image2: The second image.
+#   Args:
+#     image1: The first image.
+#     image2: The second image.
 
-  Returns:
-    The similarity score between the two images.
-  """
+#   Returns:
+#     The similarity score between the two images.
+
 
   # Convert the images to NumPy arrays.
   image1_array = np.array(image1)
@@ -33,9 +33,9 @@ def find_similarity(image1, image2):
   distance = np.linalg.norm(image1_array - image2_array)
 
   # Return the similarity score, which is 1 minus the Euclidean distance.
-  return 1 - distance
+  return 1 - distance """
 
-def main():
+""" def main():
   # Load the images.
   image1 = cv2.imread('image1.png')
   image2 = cv2.imread('image2.png')
@@ -47,7 +47,7 @@ def main():
   print('Similarity score:', similarity_score)
 
 if __name__ == '__main__':
-  main()
+  main() """
 
 
 def find_similarity(big_image,piece_io:list, small_image,side_io: int):
@@ -220,8 +220,10 @@ def get_geometry(points):
 
         geometry['head_flatness'] = len(max_index)
 
+        if(len(max_index) > 1):
+            print("more than one max_dist")
         # find the middle point of the max_dist points
-        max_point = points[int(len(max_index)/2)]
+        max_point = points[max_index[0]]
 
         geometry["Height"] = max_dist
         # find the intercept point of ortagonal line from max_point and line
@@ -234,9 +236,39 @@ def get_geometry(points):
         inter = utils.find_lines_interpolate(points_list=points)
         geometry["m"] = inter[0]
         geometry["c"] = inter[1]
+
+        thr = 5
+        index1 = get_point1(points,line,max_index[0],thr)
+        index2 = get_point2(points,line,max_index[0],thr)
+        index3 = get_point3(points,line,max_index[0],thr)
+        index4 = get_point4(points,line,max_index[0],thr)
         
-       
+        if((index1 is not None) and (index2 is not None)):
+            geometry["head"] = utils.distance(points[index1], points[index2])
+            (x0,y0) = (points[index1][0]+points[index2][0])/2,\
+                (points[index1][1]+points[index2][1])/2
+            x1,y1 = utils.find_intersection(x0, y0, line[0], line[1], line[2])
+            geometry['h_symetry'] = utils.distance(points[0], (x1,y1)) / width
+        else:
+            geometry["head"] = 1000000
+            geometry['h_symetry'] = 1
         
+        if((index3 is not None) and (index4 is not None)):
+            geometry["neck"] = utils.distance(points[index3], points[index4])
+            (x0,y0) = (points[index3][0]+points[index4][0])/2, \
+                (points[index3][1]+points[index4][1])/2
+            x1,y1 = utils.find_intersection(x0, y0, line[0], line[1], line[2])
+            geometry['n_symetry'] = utils.distance(points[0], (x1,y1)) / width
+        else:
+            geometry["neck"] = 1000000
+            geometry['n_symetry'] = 1
+
+        
+        
+         
+        
+            
+
         """ critical_points = []
         for i in range(max_x):
             # return index of points that have x value equal to i
@@ -280,9 +312,93 @@ def get_geometry(points):
         print(str(e))
         return None
          
+def get_point1(points:list,line:list,max_index:int,thr:int):
+    for i in range (len(points)):
+        if(i < max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)):
+                if(j < max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (i != j):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
 
+def get_point2(points,line,max_index,thr):
+    for i in range (len(points)-1,-1,-1):
+        if(i > max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)-1,-1,-1):
+                if(j > max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (i != j) and (abs(i-j) > 1):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
 
+def get_point3(points,line,max_index,thr):
+    for i in range (len(points)-1,-1,-1):
+        if(i < max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)-1,-1,-1):
+                if(j < max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (i != j):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
 
+def get_point4(points,line,max_index,thr):
+    for i in range (len(points)):
+        if(i > max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)):
+                if(j > max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (i != j):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
 
 def find_geometries(df: pd.DataFrame):
     try:
@@ -301,10 +417,14 @@ def find_geometries(df: pd.DataFrame):
                 continue
             
             df.loc[index, 'Width'] = geometry['Width']
-            df.loc[index, 'Height'] = geometry['Width']
+            df.loc[index, 'Height'] = geometry['Height']
             df.loc[index, 'symetry'] = geometry['symetry']
             df.loc[index, 'm'] = geometry['m']
             df.loc[index, 'c'] = geometry['c']
+            df.loc[index, 'head'] = geometry['head']
+            df.loc[index, 'h_symetry'] = geometry['h_symetry']
+            df.loc[index, 'neck'] = geometry['neck']
+            df.loc[index, 'n_symetry'] = geometry['n_symetry']
             df.to_csv("sides.csv", index=False)
 
 
@@ -462,12 +582,29 @@ def threshold_to_jpg(df: pd.DataFrame):
         # loop through all records in df dataframe
         for index, row in df.iterrows():
             piecename = row['piece']
-            piece = Piece(piecename)
-            piece.threshold_to_jpg()
+            png_name = join("threshold", piecename+".png")
+            jpg_name = join("threshold", piecename+".jpg")
+            img = cv2.imread(png_name)
+            cv2.imwrite(jpg_name,img)
                 
         # return df_pieces
     except Exception as e:
         print(str(e))
+
+def side_to_jpg(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            sidename = row['Side']
+            png_name = join("sides", sidename+".png")
+            jpg_name = join("sides", sidename+".jpg")
+            img = cv2.imread(png_name)
+            cv2.imwrite(jpg_name,img)
+                
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
 
 def contour_to_corner(df: pd.DataFrame,width: int, height: int):
     try:
@@ -630,7 +767,8 @@ def main():
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
 
-    threshold_to_jpg(df=df_pieces)
+    # threshold_to_jpg(df=df_pieces)
+    # side_to_jpg(df=df_sides)
     # df_pieces = camera_image_to_threshold(page_number = 1,folder_name = "cam01", df=df_pieces)
     # df_pieces = camera_image_to_threshold(page_number = 2,folder_name = "cam02", df=df_pieces)
     # df_pieces = camera_image_to_threshold(page_number = 3,folder_name = "cam03", df=df_pieces)
@@ -650,7 +788,7 @@ def main():
     # max_width, max_height = get_max_size(folder_name="contours")
     # threshold_to_contours(df=df_pieces,width=420, height=420)  
     # threshold_to_transparent(df=df_pieces) 
-    
+    find_geometries(df_sides)
 """ 
     get_corners_from_pointlist(df=df_pieces)
     find_corners(df=df_pieces,width=420, height=420)  

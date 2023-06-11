@@ -98,15 +98,7 @@ class Piece:
             print(e)
             return False    
 
-    def threshold_to_jpg(self):
-        try:
-            threshold_name = join(self.threshold_folder, self.name+".png")
-            transparent_name = join(self.threshold_folder, self.name+".jpg")
-            img = cv2.imread(threshold_name)
-            cv2.imwrite(transparent_name,img)
-        except Exception as e:
-            print(e)
-            return False 
+    
         
     def threshold_to_transparent(self):
         try:
