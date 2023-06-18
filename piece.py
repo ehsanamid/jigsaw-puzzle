@@ -26,6 +26,7 @@ class ShapeStatus(Enum):
     Piece = 0
     Edge = 1
     Side = 2
+    Corner = 3
 
 
 @dataclass
@@ -39,7 +40,7 @@ class Piece:
     piece_folder: str = field(init=False, repr=False, default= "pieces")
     threshold_folder: str = field(init=False, repr=False, default= "threshold")
     contour_folder: str = field(init=False, repr=False, default= "contours")
-    
+    side_corners: list[list] = field(init=False, repr=False,default_factory=list)
     status: str = field(init=False, repr=False, default= "n")
     # edge_points: list[list] = field(init=False, repr=False, default_factory=list)
     # corners: list[list] = field(init=False, repr=False, default_factory=list)
@@ -380,6 +381,31 @@ class Piece:
             print(str(e))
             return False
 
+    def corner_detect(self,width: int, height: int)-> bool:
+        return self.get_corners_from_pointlist(width, height)
+        
+        
+    def show_side_points(self)->bool:
+        try:
+            
+            contour_name = join(self.contour_folder, self.name+".png")
+            img = cv2.imread(contour_name)
+            
+            for pt in self.corners:
+                color2 = (0,0,255)
+                cv2.circle(img,pt,3,color=color2,thickness=1)
+                cv2.imshow(self.name,img)
+
+            full_key = cv2.waitKeyEx(0)
+            cv2.destroyWindow(self.name)
+            if full_key == 27:
+                return False
+            return True
+            
+        except Exception as e:
+            print(e)
+            return False
+        
     def load_points_list(self):
         try:
             file_name = join(self.contour_folder, self.name+".csv")
@@ -415,8 +441,26 @@ class Piece:
             index4 = min(enumerate(dist_list4), key=lambda x: x[1])[0]
 
             self.corners_index = [index1,index2,index3,index4]
-            
-            
+            self.arrange_points()
+            # list of distacens between points and minx and miny
+            dist_list1 = [[utils.distance(pt,[0,0]),pt] for pt in self.points_list]
+            # list of distacens between points and maxx and miny
+            dist_list2 = [[utils.distance(pt,[sizex,0]),pt] for pt in self.points_list]    
+            # list of distances between points and maxx and maxy
+            dist_list3 = [[utils.distance(pt,[sizex,sizey]),pt] for pt in self.points_list]
+            # list of distances between points and minx and maxy
+            dist_list4 = [[utils.distance(pt,[0,sizey]),pt] for pt in self.points_list]
+
+            # get the index of minimum dist_list1
+            index1 = min(enumerate(dist_list1), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list2
+            index2 = min(enumerate(dist_list2), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list3
+            index3 = min(enumerate(dist_list3), key=lambda x: x[1])[0]
+            # get the index of minimum dist_list4
+            index4 = min(enumerate(dist_list4), key=lambda x: x[1])[0]
+
+
             angle_threshold = 45
             # distance_threshold = 20
             file_name = join(self.contour_folder, self.name+"_angle.csv")
@@ -494,33 +538,87 @@ class Piece:
                             self.points_list[self.corners_index[1]],\
                             self.points_list[self.corners_index[2]],\
                             self.points_list[self.corners_index[3]]]  
+
+            blank_image = np.zeros((sizex, sizey, 3), np.uint8)
+            for i in range(len(self.points_list) ):
+                index1 = i % len(self.points_list)
+                index2 = (i+1) % len(self.points_list)
+                
+                pt1 = self.points_list[index1]
+                pt2 = self.points_list[index2]
+                # pt1 = [self.points_list[index1][0] - minx + margin, \
+                #         self.points_list[index1][1] - miny + margin]
+                # pt2 = [self.points_list[index2][0] - minx + margin, \
+                #         self.points_list[index2][1] - miny + margin]
+                # self.edge_points.append(pt1)
+                cv2.line(blank_image, pt1, pt2, (255, 255, 255), 2)
             
-            # print(df)
-            # ########
-            # # l = len(corners)
-            # output_list = []
-            # count = 0
-            # for index, row in df.iterrows():
-            #     x = int(row['X'])
-            #     y = int(row['Y'])
-            #     xy = (x,y)
+            i = 0
+            sides = []
+
+            sides.append(self.corners_index[0])
+            sides.append(self.corners_index[1])
+            sides.append(self.corners_index[1])
+            sides.append(self.corners_index[2])
+            sides.append(self.corners_index[2])
+            sides.append(self.corners_index[3])
+            sides.append(self.corners_index[3])
+            sides.append(self.corners_index[0])
+
+            side_index = 0
+            full_key = 0
+            color1 = (255,255,255)
+            color2 = (0,0,255)
+            # loop until operator press ESC key
+            # if operator press Space go to the next sides index 
+            # and by pressing 1 increase the index and by pressing 2 decrease the index
+            # and show the point on the image
+            index1 = sides[side_index]
+            while(full_key != 13):
                 
-            #     color2 = (0,0,255)
-            #     cv2.circle(img,xy,3,color=color2,thickness=1)
-            #     cv2.imshow(self.name,img)
-            #     full_key = cv2.waitKeyEx(0)
-            #     # print(f"Key pressed {full_key}\n")
-            #     if full_key == 110:
-            #         continue
-            #     if full_key == 120:
-            #         break
-            #     count += 1
-            #     output_list.append(xy)
-            #     if(count == 4):
-            #         break
+                cv2.circle(blank_image,self.points_list[index1],1,color=color2,thickness=1)    
+                cv2.imshow(self.name,blank_image)
+                full_key = cv2.waitKeyEx(0)
+                cv2.circle(blank_image,self.points_list[index1],1,color=color1,thickness=1)    
+                cv2.imshow(self.name,blank_image)
+                # print(f"Key pressed {full_key}\n")
                 
-                
-            # cv2.destroyWindow(self.name)
+                if full_key == 27:
+                    cv2.destroyWindow(self.name)
+                    return False
+                if full_key == 32:
+                    side_index = (side_index +1)  % len(sides)
+                    index1 = sides[side_index]
+                if full_key == 49:
+                    index1 += 1
+                    index1 = index1 % len(self.points_list)
+                    sides[side_index] = index1
+                if full_key == 50:
+                    index1 -= 1
+                    index1 = (index1 + len(self.points_list)) % len(self.points_list)
+                    sides[side_index] = index1
+
+            index1 = sides[0]
+            index2 = sides[1]
+            self.side_corners.append(((index1,self.points_list[index1][0],self.points_list[index1][1]),\
+                                      (index2,self.points_list[index2][0],self.points_list[index2][1])))   
+            index1 = sides[2]
+            index2 = sides[3]
+            self.side_corners.append(((index1,self.points_list[index1][0],self.points_list[index1][1]),\
+                                        (index2,self.points_list[index2][0],self.points_list[index2][1])))
+            index1 = sides[4]
+            index2 = sides[5]
+            self.side_corners.append(((index1,self.points_list[index1][0],self.points_list[index1][1]),\
+                                        (index2,self.points_list[index2][0],self.points_list[index2][1])))
+            index1 = sides[6]
+            index2 = sides[7]
+            self.side_corners.append(((index1,self.points_list[index1][0],self.points_list[index1][1]),\
+                                        (index2,self.points_list[index2][0],self.points_list[index2][1])))
+           
+
+
+
+            cv2.destroyAllWindows()
             return True
         except Exception as e:
             print(f"Error in show_edge_corners {e}")
@@ -763,8 +861,8 @@ class Piece:
 
         if revers_order:
             # rotate the self.point_list by self.corners_index[3]
-            self.points_list = self.points_list[self.corners_index[3]+1:] + \
-                                self.points_list[:self.corners_index[3]+1]
+            # self.points_list = self.points_list[self.corners_index[3]+1:] + \
+            #                     self.points_list[:self.corners_index[3]+1]
             
             
             # reverse self.points_list
@@ -772,14 +870,14 @@ class Piece:
             
             
             
-        else:
-            # rotate the self.point_list by self.corners_index[0]
-            self.points_list = self.points_list[self.corners_index[0]:] + \
-                                self.points_list[:self.corners_index[0]]
+        # else:
+        #     # rotate the self.point_list by self.corners_index[0]
+        #     self.points_list = self.points_list[self.corners_index[0]:] + \
+        #                         self.points_list[:self.corners_index[0]]
             
         
         # find index of point in self.points_list whic is equal X1 and Y1
-        X1 = self.corners[0][0]
+        """ X1 = self.corners[0][0]
         Y1 = self.corners[0][1]
         X2 = self.corners[1][0]
         Y2 = self.corners[1][1]
@@ -802,7 +900,7 @@ class Piece:
         self.corners = [self.points_list[self.corners_index[0]],\
                         self.points_list[self.corners_index[1]],\
                         self.points_list[self.corners_index[2]],\
-                        self.points_list[self.corners_index[3]]]  
+                        self.points_list[self.corners_index[3]]]   """
 
 
     def clasification(self,X1,Y1,X2,Y2,X3,Y3,X4,Y4) -> bool:

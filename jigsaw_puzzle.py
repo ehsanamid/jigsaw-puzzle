@@ -10,8 +10,6 @@ import utils
 import tkinter as tk
 
 
-import cv2
-import numpy as np
 
 """ def find_similarity(image1, image2):
   
@@ -726,6 +724,48 @@ def find_sides(df: pd.DataFrame):
                     df.loc[index, 'X4'] = piece.corners[3][0]
                     df.loc[index, 'Y4'] = piece.corners[3][1]
                     df.loc[index, 'IO4'] = piece.in_out[3].value
+                    
+                    df.to_csv("pieces.csv", index=False)
+                    print(f"{piecename} corners found\n")
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
+
+def corners(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            status = ShapeStatus(row['status'])
+            if(status != ShapeStatus.Corner):
+                piece = Piece(piecename)
+                if(piece.corner_detect(420,420)):
+                    df.loc[index, 'status'] = ShapeStatus.Corner.value
+                    df.loc[index, 'Index1_1'] =piece.side_corners[0][0][0]
+                    df.loc[index, 'X1_1'] = piece.side_corners[0][0][1]
+                    df.loc[index, 'Y1_1'] = piece.side_corners[0][0][2]
+                    df.loc[index, 'Index1_2'] = piece.side_corners[0][1][0]
+                    df.loc[index, 'X1_2'] = piece.side_corners[0][1][1]
+                    df.loc[index, 'Y1_2'] = piece.side_corners[0][1][2]
+                    df.loc[index, 'Index2_1'] = piece.side_corners[1][0][0]
+                    df.loc[index, 'X2_1'] = piece.side_corners[1][0][1]
+                    df.loc[index, 'Y2_1'] = piece.side_corners[1][0][2]
+                    df.loc[index, 'Index2_2'] = piece.side_corners[1][1][0]
+                    df.loc[index, 'X2_2'] = piece.side_corners[1][1][1]
+                    df.loc[index, 'Y2_2'] = piece.side_corners[1][1][2]
+                    df.loc[index, 'Index3_1'] = piece.side_corners[2][0][0]
+                    df.loc[index, 'X3_1'] = piece.side_corners[2][0][1]
+                    df.loc[index, 'Y3_1'] = piece.side_corners[2][0][2]
+                    df.loc[index, 'Index3_2'] = piece.side_corners[2][1][0]
+                    df.loc[index, 'X3_2'] = piece.side_corners[2][1][1]
+                    df.loc[index, 'Y3_2'] = piece.side_corners[2][1][2]
+                    df.loc[index, 'Index4_1'] = piece.side_corners[3][0][0]
+                    df.loc[index, 'X4_1'] = piece.side_corners[3][0][1]
+                    df.loc[index, 'Y4_1'] = piece.side_corners[3][0][2]
+                    df.loc[index, 'Index4_2'] = piece.side_corners[3][1][0]
+                    df.loc[index, 'X4_2'] = piece.side_corners[3][1][1]
+                    df.loc[index, 'Y4_2'] = piece.side_corners[3][1][2]
+                                       
                     df.to_csv("pieces.csv", index=False)
                     print(f"{piecename} corners found\n")
             
@@ -734,7 +774,6 @@ def find_sides(df: pd.DataFrame):
         # return df_pieces
     except Exception as e:
         print(str(e))
-
 
 
 
@@ -767,6 +806,7 @@ def main():
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
 
+    corners(df=df_pieces)
     # threshold_to_jpg(df=df_pieces)
     # side_to_jpg(df=df_sides)
     # df_pieces = camera_image_to_threshold(page_number = 1,folder_name = "cam01", df=df_pieces)
@@ -788,7 +828,8 @@ def main():
     # max_width, max_height = get_max_size(folder_name="contours")
     # threshold_to_contours(df=df_pieces,width=420, height=420)  
     # threshold_to_transparent(df=df_pieces) 
-    find_geometries(df_sides)
+    
+    # find_geometries(df_sides)
 """ 
     get_corners_from_pointlist(df=df_pieces)
     find_corners(df=df_pieces,width=420, height=420)  
