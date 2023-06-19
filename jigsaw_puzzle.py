@@ -775,6 +775,24 @@ def corners(df: pd.DataFrame):
     except Exception as e:
         print(str(e))
 
+def sides(df: pd.DataFrame):
+    try:
+        # loop through all records in df dataframe
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            status = ShapeStatus(row['status'])
+            if(status == ShapeStatus.Corner):
+                piece = Piece(piecename)
+                if(piece.side(420,420)):
+                    df.loc[index, 'status'] = ShapeStatus.Side.value
+                    df.to_csv("pieces.csv", index=False)
+                    print(f"{piecename} corners found\n")
+            
+        
+        
+        # return df_pieces
+    except Exception as e:
+        print(str(e))
 
 
 # read all images in a folder and get the maximum size of the image
