@@ -783,8 +783,17 @@ def sides(df: pd.DataFrame):
             status = ShapeStatus(row['status'])
             if(status == ShapeStatus.Corner):
                 piece = Piece(piecename)
+                piece.side_corners.append(([row['Index1_1'],row['X1_1'],row['Y1_1']]),([row['Index1_2'],row['X1_2'],row['Y1_2']]))
+                piece.side_corners.append(([row['Index2_1'],row['X2_1'],row['Y2_1']]),([row['Index2_2'],row['X2_2'],row['Y2_2']]))
+                piece.side_corners.append(([row['Index3_1'],row['X3_1'],row['Y3_1']]),([row['Index3_2'],row['X3_2'],row['Y3_2']]))
+                piece.side_corners.append(([row['Index4_1'],row['X4_1'],row['Y4_1']]),([row['Index4_2'],row['X4_2'],row['Y4_2']]))
+
                 if(piece.side(420,420)):
                     df.loc[index, 'status'] = ShapeStatus.Side.value
+                    df.loc[index, 'IO1'] = piece.in_out[0].value
+                    df.loc[index, 'IO2'] = piece.in_out[1].value
+                    df.loc[index, 'IO3'] = piece.in_out[2].value
+                    df.loc[index, 'IO4'] = piece.in_out[3].value
                     df.to_csv("pieces.csv", index=False)
                     print(f"{piecename} corners found\n")
             

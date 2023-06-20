@@ -910,41 +910,57 @@ class Piece:
             return False
         return True
 
+    def side(self, sizex, sizey)->bool:
+        self.load_points_list()
+        self.find_shape_in_out()
 
-    def find_shape_in_out(self,X1,Y1,X2,Y2,X3,Y3,X4,Y4)->bool:
+    def find_shape_in_out(self)->bool:
         try:
+            index1_1 = self.side_corners[0][0][0]
+            index1_2 = self.side_corners[0][1][0]
+            index2_1 = self.side_corners[1][0][0]
+            index2_2 = self.side_corners[1][1][0]
+            index3_1 = self.side_corners[2][0][0]
+            index3_2 = self.side_corners[2][1][0]
+            index4_1 = self.side_corners[3][0][0]
+            index4_2 = self.side_corners[3][1][0]
+
+
+            self.corners = []
+            self.corners.append((self.side_corners[0][0][1],self.side_corners[0][0][2]))
+            self.corners.append((self.side_corners[1][0][1],self.side_corners[1][0][2]))
+            self.corners.append((self.side_corners[2][0][1],self.side_corners[2][0][2]))
+            self.corners.append((self.side_corners[3][0][1],self.side_corners[3][0][2]))
             
-            # find the center of the xy
-            self.load_points_list()
-            
-
-            self.corners = [[X1,Y1],[X2,Y2],[X3,Y3],[X4,Y4]]
-            self.corners_index = [0,0,0,0]
-            # find index of point in self.points_list whic is equal X1 and Y1
-            self.corners_index[0] = [i for i,point in enumerate(self.points_list) if point == [X1,Y1]][0]
-            # find index of point in self.points_list whic is equal X2 and Y2
-            self.corners_index[1] = [i for i,point in enumerate(self.points_list) if point == [X2,Y2]][0]
-            # find index of point in self.points_list whic is equal X3 and Y3
-            self.corners_index[2] = [i for i,point in enumerate(self.points_list) if point == [X3,Y3]][0]
-            # find index of point in self.points_list whic is equal X4 and Y4
-            self.corners_index[3] = [i for i,point in enumerate(self.points_list) if point == [X4,Y4]][0]
-
-            self.arrange_points()
-
             # get the center of the xy
             center = [sum(pt[0] for pt in self.corners) // len(self.corners),\
                        sum(pt[1] for pt in self.corners) // len(self.corners)]
 
             side_points = []
-            side_points.append(self.points_list[self.corners_index[0]:self.corners_index[1]])
-            side_points.append(self.points_list[self.corners_index[1]:self.corners_index[2]])
-            side_points.append(self.points_list[self.corners_index[2]:self.corners_index[3]])
-            side_points.append(self.points_list[self.corners_index[3]:])
+            buffer_len = len(self.points_list)
+            if(index1_1 < index1_2):
+                side_points.append(self.points_list[index1_1:index1_2])
+            else:
+                side_points.append(self.points_list[index1_1:buffer_len])
+                side_points.append(self.points_list[0:index1_2])
+            if(index2_1 < index2_2):
+                side_points.append(self.points_list[index2_1:index2_2])
+            else:
+                side_points.append(self.points_list[index2_1:buffer_len])
+                side_points.append(self.points_list[0:index2_2])
+            if(index3_1 < index3_2):
+                side_points.append(self.points_list[index3_1:index3_2])
+            else:
+                side_points.append(self.points_list[index3_1:buffer_len])
+                side_points.append(self.points_list[0:index3_2])
+            if(index4_1 < index4_2):
+                side_points.append(self.points_list[index4_1:index4_2])
+            else:
+                side_points.append(self.points_list[index4_1:buffer_len])
+                side_points.append(self.points_list[0:index4_2])
+
             for i in range(4):
-                # if(i == 3):
-                #     side_points = self.points_list[self.corners_index[i]:]
-                # else:
-                #     side_points = self.points_list[self.corners_index[i]:self.corners_index[(i+1)%4]]
+                
                 line = utils.get_line_through_points(self.corners[i],self.corners[(i+1)%4])
                 # find the index of maximum distance between points in side_points and line
                 ds = [utils.distance_point_line_squared(line, point) for point in side_points[i]]
