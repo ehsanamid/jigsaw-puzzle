@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 # from utils import get_line_through_points, distance_point_line_squared,\
 #       distance,rotate_points,point_exists,slope_in_degrees
 import utils
-from side_extractor import rotation_matrix
+# from side_extractor import rotation_matrix
 from side import Side   # dataclass
 from enum import Enum
 
@@ -28,6 +28,7 @@ class ShapeStatus(Enum):
     Side = 2
     Corner = 3
 
+rotation_matrix = np.array([[-1, 0, 1, 2], [1, 2, -1, 0]])
 
 @dataclass
 class Piece:
@@ -417,7 +418,21 @@ class Piece:
             return True
         except Exception as e:
             print(str(e))
-            return False        
+            return False      
+
+    def load_second_points_list(self):
+        try:
+            file_name = join(self.contour_folder, self.name+"_angle.csv")
+            f = open(file_name,"r")
+            self.points_list = []
+            for line in f:
+                sep = line.split(",")
+                self.points_list.append((int(sep[0]),int(sep[1])))
+            f.close()
+            return True
+        except Exception as e:
+            print(str(e))
+            return False      
 
     def get_corners_from_pointlist(self, sizex, sizey)->bool:
         try:
@@ -911,19 +926,26 @@ class Piece:
         return True
 
     def side(self, sizex, sizey)->bool:
-        self.load_points_list()
-        self.find_shape_in_out()
+        if(self.load_second_points_list() is False):
+            return False
+        if(self.find_shape_in_out(sizex, sizey) is False):
+            return False
+       
+        return True
 
-    def find_shape_in_out(self)->bool:
+    def find_shape_in_out(self, sizex: int, sizey: int)->bool:
         try:
-            index1_1 = self.side_corners[0][0][0]
-            index1_2 = self.side_corners[0][1][0]
-            index2_1 = self.side_corners[1][0][0]
-            index2_2 = self.side_corners[1][1][0]
-            index3_1 = self.side_corners[2][0][0]
-            index3_2 = self.side_corners[2][1][0]
-            index4_1 = self.side_corners[3][0][0]
-            index4_2 = self.side_corners[3][1][0]
+            # convert to 3.4 to int
+
+            
+            index1_1 = int(self.side_corners[0][0][0])
+            index1_2 = int(self.side_corners[0][1][0])
+            index2_1 = int(self.side_corners[1][0][0])
+            index2_2 = int(self.side_corners[1][1][0])
+            index3_1 = int(self.side_corners[2][0][0])
+            index3_2 = int(self.side_corners[2][1][0])
+            index4_1 = int(self.side_corners[3][0][0])
+            index4_2 = int(self.side_corners[3][1][0])
 
 
             self.corners = []
@@ -938,26 +960,39 @@ class Piece:
 
             side_points = []
             buffer_len = len(self.points_list)
+            t = []
             if(index1_1 < index1_2):
                 side_points.append(self.points_list[index1_1:index1_2])
             else:
-                side_points.append(self.points_list[index1_1:buffer_len])
-                side_points.append(self.points_list[0:index1_2])
+                t = self.points_list[index1_1:buffer_len]
+                t.extend(self.points_list[0:index1_2])
+                side_points.append(t)
+                # side_points.append(self.points_list[index1_1:buffer_len])
+                # side_points.append(self.points_list[0:index1_2])
             if(index2_1 < index2_2):
                 side_points.append(self.points_list[index2_1:index2_2])
             else:
-                side_points.append(self.points_list[index2_1:buffer_len])
-                side_points.append(self.points_list[0:index2_2])
+                t = self.points_list[index2_1:buffer_len]
+                t.extend(self.points_list[0:index2_2])
+                side_points.append(t)
+                # side_points.append(self.points_list[index2_1:buffer_len])
+                # side_points.append(self.points_list[0:index2_2])
             if(index3_1 < index3_2):
                 side_points.append(self.points_list[index3_1:index3_2])
             else:
-                side_points.append(self.points_list[index3_1:buffer_len])
-                side_points.append(self.points_list[0:index3_2])
+                t = self.points_list[index3_1:buffer_len]
+                t.extend(self.points_list[0:index3_2])
+                side_points.append(t)
+                # side_points.append(self.points_list[index3_1:buffer_len])
+                # side_points.append(self.points_list[0:index3_2])
             if(index4_1 < index4_2):
                 side_points.append(self.points_list[index4_1:index4_2])
             else:
-                side_points.append(self.points_list[index4_1:buffer_len])
-                side_points.append(self.points_list[0:index4_2])
+                t = self.points_list[index4_1:buffer_len]
+                t.extend(self.points_list[0:index4_2])
+                side_points.append(t)
+                # side_points.append(self.points_list[index4_1:buffer_len])
+                # side_points.append(self.points_list[0:index4_2])
 
             for i in range(4):
                 
@@ -976,24 +1011,26 @@ class Piece:
                 else:
                     self.in_out.append(SideShape.IN)
                 
+            for i in range(4):
+                self.side_to_image(i,side_points[i], sizex, sizey)
             return True
         except Exception as e:
             print(e)
             return False   
 
-    def shape_classification(self)->bool:
+    # def shape_classification(self)->bool:
         
-        try:
-            for i in range(4):
-                if(i == 3):
-                    side_points = self.points_list[self.corners_index[i]:]
-                else:
-                    side_points = self.points_list[self.corners_index[i]:self.corners_index[(i+1)%4]]
-                self.side_to_image(i,side_points)
-            return True
-        except Exception as e:
-            print(e)
-            return False
+    #     try:
+    #         for i in range(4):
+    #             if(i == 3):
+    #                 side_points = self.points_list[self.corners_index[i]:]
+    #             else:
+    #                 side_points = self.points_list[self.corners_index[i]:self.corners_index[(i+1)%4]]
+    #             self.side_to_image(i,side_points)
+    #         return True
+    #     except Exception as e:
+    #         print(e)
+    #         return False
 
     def draw_points(self,points):
         # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
@@ -1026,83 +1063,37 @@ class Piece:
             cv2.destroyAllWindows()
 
 
-    def side_to_image(self, idx: int,points: list)->bool:
+    def side_to_image(self, idx: int,points: list,sizex: int, sizey: int)->bool:
         try:
             # show_point(points)
             oriatation = self.in_out[0].value - 1
             
-            points = utils.rotate_points(points, \
-                                rotation_matrix[oriatation, idx], \
-                                    self.corners[idx])
+            # points = utils.rotate_points(points, \
+            #                     rotation_matrix[oriatation, idx], \
+            #                         self.corners[idx])
             
-            # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
-            # minimum value of x and y
-            minx = min(points, key=lambda x: x[0])[0]
-            miny = min(points, key=lambda x: x[1])[1]
-            # maximum value of x and y
-            maxx = max(points, key=lambda x: x[0])[0]
-            maxy = max(points, key=lambda x: x[1])[1]
-            # pt1 is the first point in points
-            pt1 = points[0]
-            # pt2 is the last point in points
-            pt2 = points[-1]
-            if(pt1[0] < pt2[0]):
-                angle = utils.slope_in_degrees(pt1, pt2)*(-1)
-            else:
-                angle = utils.slope_in_degrees(pt2, pt1)*(-1)
-            if(angle > 90):
-                angle =  angle - 180
-            else:
-                angle = angle 
+           
             
-            """
-            points = rotate_points(points, \
-                                angle, \
-                                    self.corners[idx])
-            
-            # blank_image = np.zeros((max_size(0),max_size(1),3), np.uint8)
-            # minimum value of x and y
-            minx = min(points, key=lambda x: x[0])[0]
-            miny = min(points, key=lambda x: x[1])[1]
-            # maximum value of x and y
-            maxx = max(points, key=lambda x: x[0])[0]
-            maxy = max(points, key=lambda x: x[1])[1]
- """
-            marg = 1
-            # size of the image
-            sizex, sizey = ((maxx - minx + marg*2), (maxy - miny+marg*2))
             blank_image = np.zeros((sizey, sizex, 3), np.uint8)
-            # shift all points to (minx,miny) and add margin
-            points = [[points[i][0] - minx + marg,points[i][1] - miny + marg] \
-                    for i in range(len(points))]
             
-            if(points[0][0] > points[-1][0]):
-                points = points[::-1]
-            # draw the contour
             for i in range(len(points) -1 ):
-                # index1 = i 
-                # index2 = (i+1) 
-                # pt1 = [points[index1][0] - minx + marg, points[index1][1] - miny + marg]
-                # pt2 = [points[index2][0] - minx + marg, points[index2][1] - miny + marg]
+                
                 pt1 = points[i]
                 pt2 = points[i+1]
                 cv2.line(blank_image, pt1, pt2, (255, 255, 255), 1)
             
-            # blank_image1 = rotate_image(blank_image, angle)
-                
             # add "in" or "out" to the file name based on orientation
             if self.in_out[idx] == SideShape.IN:
                 filename = f"{self.name}_{idx+1}_in"
             else:
                 filename = f"{self.name}_{idx+1}_out"
-            cv2.imwrite(join('sides', filename +".png"),blank_image)
-            # cv2.imwrite(join('sides', filename +".jpg"),blank_image1)
+            rot = rotation_matrix[oriatation, idx]
+            if(rot >= 0):
+                blank_image1 = cv2.rotate(blank_image, rot)
+                cv2.imwrite(join('sides', filename +".jpg"),blank_image1)
+            else:
+                cv2.imwrite(join('sides', filename +".jpg"),blank_image)
             
-            
-            f = open(join('sides', filename +".csv"),"w")
-            for p in points:
-                f.write(f"{p[0]},{p[1]}\n")
-            f.close()
 
             return True
         except Exception as e:

@@ -737,7 +737,7 @@ def corners(df: pd.DataFrame):
         for index, row in df.iterrows():
             piecename = row['piece']
             status = ShapeStatus(row['status'])
-            if(status != ShapeStatus.Corner):
+            if((status == ShapeStatus.Edge) or (status == ShapeStatus.Piece)):
                 piece = Piece(piecename)
                 if(piece.corner_detect(420,420)):
                     df.loc[index, 'status'] = ShapeStatus.Corner.value
@@ -783,10 +783,10 @@ def sides(df: pd.DataFrame):
             status = ShapeStatus(row['status'])
             if(status == ShapeStatus.Corner):
                 piece = Piece(piecename)
-                piece.side_corners.append(([row['Index1_1'],row['X1_1'],row['Y1_1']]),([row['Index1_2'],row['X1_2'],row['Y1_2']]))
-                piece.side_corners.append(([row['Index2_1'],row['X2_1'],row['Y2_1']]),([row['Index2_2'],row['X2_2'],row['Y2_2']]))
-                piece.side_corners.append(([row['Index3_1'],row['X3_1'],row['Y3_1']]),([row['Index3_2'],row['X3_2'],row['Y3_2']]))
-                piece.side_corners.append(([row['Index4_1'],row['X4_1'],row['Y4_1']]),([row['Index4_2'],row['X4_2'],row['Y4_2']]))
+                piece.side_corners.append((([row['Index1_1'],row['X1_1'],row['Y1_1']]),([row['Index1_2'],row['X1_2'],row['Y1_2']])))
+                piece.side_corners.append((([row['Index2_1'],row['X2_1'],row['Y2_1']]),([row['Index2_2'],row['X2_2'],row['Y2_2']])))
+                piece.side_corners.append((([row['Index3_1'],row['X3_1'],row['Y3_1']]),([row['Index3_2'],row['X3_2'],row['Y3_2']])))
+                piece.side_corners.append((([row['Index4_1'],row['X4_1'],row['Y4_1']]),([row['Index4_2'],row['X4_2'],row['Y4_2']])))
 
                 if(piece.side(420,420)):
                     df.loc[index, 'status'] = ShapeStatus.Side.value
@@ -832,6 +832,9 @@ def main():
     
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
+
+    
+    # sides(df=df_pieces)
 
     corners(df=df_pieces)
     # threshold_to_jpg(df=df_pieces)
