@@ -6,46 +6,69 @@ import pandas as pd
 import cv2
 from piece import Piece, SideShape, ShapeStatus
 import math
-import utils
-import tkinter as tk
+import tensorflow as tf
+
+def nn_corner_detect(df: pd.DataFrame):
+    try:
+        # Create a list of images and their corners
+        images = []
+        corners = []
+
+        for index, row in df.iterrows():
+            piecename = row['piece']
+            
+            status = ShapeStatus(row['status'])
+            if((status == ShapeStatus.Corner) or (status == ShapeStatus.Side)):
+                # a = np.array([row['X1_1'],row['Y1_1'], \
+                #             row['X1_2'],row['Y1_2'], \
+                #             row['X2_1'],row['Y2_1'], \
+                #             row['X2_2'],row['Y2_2'], \
+                #             row['X3_1'],row['Y3_1'], \
+                #             row['X3_2'],row['Y3_2'], \
+                #             row['X4_1'],row['Y4_1'], \
+                #             row['X4_2'],row['Y4_2']])
+                a = np.array([row['X1_1']])
+                print(piecename)
+                # print size of a
+                print(a.shape)
+                corners.append(a)
+                contour_name = join("contours", piecename+".png")
+                image = cv2.imread(contour_name)
+                # print size of image and image name
+                print(image.shape)
+                image_array = np.array(image)
+                images.append(image_array)
+            
+            if(index > 10):
+                break
 
 
+        
 
-""" def find_similarity(image1, image2):
-  
-#   Finds the similarity between two images.
+        # Create a neural network model
+        model = tf.keras.models.Sequential()
+        model.add(tf.keras.layers.Flatten(input_shape=images[0].shape))
+        model.add(tf.keras.layers.Dense(128, activation="relu"))
+        model.add(tf.keras.layers.Dense(64, activation="relu"))
+        model.add(tf.keras.layers.Dense(4, activation="linear"))
 
-#   Args:
-#     image1: The first image.
-#     image2: The second image.
+        # Train the neural network model
+        model.compile(optimizer="adam", loss="mse")
+        model.fit(images, corners, epochs=10)
 
-#   Returns:
-#     The similarity score between the two images.
+        # Save the neural network model
+        model.save("corner_detection_model.h5")
 
+        # Test the neural network model
+        image = cv2.imread("new_image.jpg")
+        image_array = np.array(image)
+        corners = model.predict(image_array)
 
-  # Convert the images to NumPy arrays.
-  image1_array = np.array(image1)
-  image2_array = np.array(image2)
+        # Print the corners of the new image
+        print(corners)
 
-  # Calculate the Euclidean distance between the two images.
-  distance = np.linalg.norm(image1_array - image2_array)
-
-  # Return the similarity score, which is 1 minus the Euclidean distance.
-  return 1 - distance """
-
-""" def main():
-  # Load the images.
-  image1 = cv2.imread('image1.png')
-  image2 = cv2.imread('image2.png')
-
-  # Find the similarity between the two images.
-  similarity_score = find_similarity(image1, image2)
-
-  # Print the similarity score.
-  print('Similarity score:', similarity_score)
-
-if __name__ == '__main__':
-  main() """
+    except Exception as e:
+        print(str(e))    
 
 
 def find_similarity(big_image,piece_io:list, small_image,side_io: int):
@@ -185,7 +208,7 @@ def find_the_best_matchs():
     except Exception as e:
         print(str(e))
 
-def get_geometry(points):
+""" def get_geometry(points):
     try:
         geometry = {}
 
@@ -262,141 +285,14 @@ def get_geometry(points):
             geometry['n_symetry'] = 1
 
         
-        
-         
-        
-            
 
-        """ critical_points = []
-        for i in range(max_x):
-            # return index of points that have x value equal to i
-            idx = [j for j, x in enumerate(points) if x[0] == i]
-            # if there is more than one point with x value equal to i
-            blocks = []
-            start = 0
-            segment_len = 0
-            if len(idx) > 1:
-                start = idx[0]
-                segment_len = 0
-                for j in range(len(idx)-1):
-                    # get the distance between the two points
-                    dist = points[idx[j+1]][1] - points[idx[j]][1]
-                    
-                    if dist < 2:
-                        segment_len += 1
-                    else:
-                        blocks.append([start, segment_len])
-                        start = idx[j+1]
-                        segment_len = 0
-                blocks.append([start, segment_len])        
-            if (len(blocks) ==2):
-                critical_points.append(blocks)
-            
-        for blocks in critical_points:
-            for block in blocks:
-                start_idx = block[0]
-                block_len = block[1]
-                X1 = points[start_idx][0]
-                Y1 = points[start_idx][1]
-                Y2 = points[start_idx + block_len][1]
-                geometry.append(X1)
-                geometry.append(Y1)
-                # geometry.append(Y2)
-                # geometry.append(Y2 - Y1)        
- """
         # return the geometry
         return geometry
     except Exception as e:
         print(str(e))
-        return None
+        return None """
          
-def get_point1(points:list,line:list,max_index:int,thr:int):
-    for i in range (len(points)):
-        if(i < max_index):
-            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
-                                                a=line[0], b=line[1], c=line[2])
-            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
-            
-            min_val = 100000
-            min_index = 0
-            for j in range(len(points)):
-                if(j < max_index):
-                    # check if absoulte value of overlap is les than 10 the add to the cross list
-                    if(abs(overlap[j]) < thr) and (i != j):
-                        if( min_val > abs(overlap[j])) :
-                            min_val = abs(overlap[j])
-                            min_index = j
-                        
-            if(min_val != 100000):
-                # print(f" points[{min_index}] = {points[min_index]}")
-                return min_index
-    return None
 
-def get_point2(points,line,max_index,thr):
-    for i in range (len(points)-1,-1,-1):
-        if(i > max_index):
-            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
-                                                a=line[0], b=line[1], c=line[2])
-            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
-            
-            min_val = 100000
-            min_index = 0
-            for j in range(len(points)-1,-1,-1):
-                if(j > max_index):
-                    # check if absoulte value of overlap is les than 10 the add to the cross list
-                    if(abs(overlap[j]) < thr) and (i != j) and (abs(i-j) > 1):
-                        if( min_val > abs(overlap[j])) :
-                            min_val = abs(overlap[j])
-                            min_index = j
-                        
-            if(min_val != 100000):
-                # print(f" points[{min_index}] = {points[min_index]}")
-                return min_index
-    return None
-
-def get_point3(points,line,max_index,thr):
-    for i in range (len(points)-1,-1,-1):
-        if(i < max_index):
-            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
-                                                a=line[0], b=line[1], c=line[2])
-            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
-            
-            min_val = 100000
-            min_index = 0
-            for j in range(len(points)-1,-1,-1):
-                if(j < max_index):
-                    # check if absoulte value of overlap is les than 10 the add to the cross list
-                    if(abs(overlap[j]) < thr) and (i != j):
-                        if( min_val > abs(overlap[j])) :
-                            min_val = abs(overlap[j])
-                            min_index = j
-                        
-            if(min_val != 100000):
-                # print(f" points[{min_index}] = {points[min_index]}")
-                return min_index
-    return None
-
-def get_point4(points,line,max_index,thr):
-    for i in range (len(points)):
-        if(i > max_index):
-            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
-                                                a=line[0], b=line[1], c=line[2])
-            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
-            
-            min_val = 100000
-            min_index = 0
-            for j in range(len(points)):
-                if(j > max_index):
-                    # check if absoulte value of overlap is les than 10 the add to the cross list
-                    if(abs(overlap[j]) < thr) and (i != j):
-                        if( min_val > abs(overlap[j])) :
-                            min_val = abs(overlap[j])
-                            min_index = j
-                        
-            if(min_val != 100000):
-                # print(f" points[{min_index}] = {points[min_index]}")
-                return min_index
-    return None
 
 def find_geometries(df: pd.DataFrame):
     try:
@@ -737,7 +633,7 @@ def corners(df: pd.DataFrame):
         for index, row in df.iterrows():
             piecename = row['piece']
             status = ShapeStatus(row['status'])
-            if((status == ShapeStatus.Edge) or (status == ShapeStatus.Piece)):
+            if(status == ShapeStatus.Piece):
                 piece = Piece(piecename)
                 if(piece.corner_detect(420,420)):
                     df.loc[index, 'status'] = ShapeStatus.Corner.value
@@ -775,7 +671,7 @@ def corners(df: pd.DataFrame):
     except Exception as e:
         print(str(e))
 
-def sides(df: pd.DataFrame):
+def sides(df: pd.DataFrame,side_df: pd.DataFrame):
     try:
         # loop through all records in df dataframe
         for index, row in df.iterrows():
@@ -794,7 +690,25 @@ def sides(df: pd.DataFrame):
                     df.loc[index, 'IO2'] = piece.in_out[1].value
                     df.loc[index, 'IO3'] = piece.in_out[2].value
                     df.loc[index, 'IO4'] = piece.in_out[3].value
+                    
+                    dic = piece.piece_geometry
+                    # loop through piece.piece_geometry dictionary  
+                    for key, value in dic.items():
+                        # search key in side_dfs dataframe and if it exists, update the value and save the dataframe 
+                        # and if it does not exist, add a new row to the dataframe and save the dataframe
+                        if( key in side_df['Side'].values):
+                            idx = side_df.index[side_df['Side'] == key].tolist()[0]
+                            side_df.loc[idx, 'Piece'] = value['piece_name']
+                            side_df.loc[idx, 'Width'] = value['Width']
+                            side_df.loc[idx, 'Height'] = value['Height']
+                            side_df.loc[idx, 'symetry'] = value['symetry']
+                            side_df.loc[idx, 'head'] = value['head']
+                            side_df.loc[idx, 'h_symetry'] = value['h_symetry']
+                            side_df.loc[idx, 'neck'] = value['neck']
+                            side_df.loc[idx, 'n_symetry'] = value['n_symetry']
+                    
                     df.to_csv("pieces.csv", index=False)
+                    side_df.to_csv("sides.csv", index=False)
                     print(f"{piecename} corners found\n")
             
         
@@ -820,21 +734,14 @@ def get_max_size(folder_name):
 
 
 
-
-
-
-
-
-
-
-
 def main():
     
     df_pieces = pd.read_csv('pieces.csv')
     df_sides = pd.read_csv('sides.csv')
 
+    # nn_corner_detect(df=df_pieces)
     
-    # sides(df=df_pieces)
+    sides(df=df_pieces,side_df=df_sides)
 
     corners(df=df_pieces)
     # threshold_to_jpg(df=df_pieces)

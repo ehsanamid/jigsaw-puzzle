@@ -50,6 +50,7 @@ class Piece:
     # size of the piece
     width: int = field(init=False, repr=False, default= 0)
     height: int = field(init=False, repr=False, default= 0)
+    piece_geometry: dict = field(init=False, repr=False, default_factory=dict)
     
     def __post_init__(self):
         self.piece_file_name = self.name + ".jpg"
@@ -1010,7 +1011,17 @@ class Piece:
                     self.in_out.append(SideShape.OUT)
                 else:
                     self.in_out.append(SideShape.IN)
-                
+            
+
+            
+            for i in range(4):
+                if self.in_out[i] == SideShape.IN:
+                    filename = f"{self.name}_{i+1}_in"
+                else:
+                    filename = f"{self.name}_{i+1}_out"
+                self.piece_geometry[filename] = get_geometry(self.name,side_points[i])
+
+
             for i in range(4):
                 self.side_to_image(i,side_points[i], sizex, sizey)
             return True
@@ -1103,3 +1114,165 @@ class Piece:
     
     
 
+def get_geometry(name: str, points:list):
+    try:
+        geometry = {}
+        geometry["piece_name"] = name
+        # remove the first 5 points and the last 5 points
+        # points = points[5:-5]
+
+        # distance between the first point and the last point
+        width = utils.distance(points[0], points[-1])
+        if(width == 0):
+            geometry['Width'] = 1000
+        else:
+            geometry["Width"] = width
+    
+
+        #get the line between the first point and the last point
+        line = utils.get_line_through_points(points[0], points[-1])
+
+        # find the point that has the maximum distance from the line
+        max_dist = 0
+        max_point = []
+
+        # put disatnce from line to each point in a list
+        dist = [utils.distance_point_line_squared(a_b_c=line, x0_y0=point) \
+                for point in points] 
+
+        # find the max distance and its index
+        max_dist = max(dist)
+        
+        # return list of indexes of max_dist
+        max_index = [i for i, j in enumerate(dist) if j == max_dist]
+
+        max_len = len(max_index)
+
+        if(len(max_index) > 1):
+            print("more than one max_dist")
+        # find the middle point of the max_dist points
+        max_point = points[max_index[max_len//2]]
+
+        geometry["Height"] = max_dist
+        # find the intercept point of ortagonal line from max_point and line
+        x1,y1 = utils.find_intersection(max_point[0], max_point[1],\
+            line[0], line[1], line[2])
+
+        symetry = utils.distance(points[0], (x1,y1)) / width
+        geometry['symetry'] = symetry
+
+        
+
+        thr = 20
+        idx = []
+        idx.append(get_point1(points,line,max_index[max_len//2],thr))
+        idx.append(get_point2(points,line,max_index[max_len//2],thr))
+        idx.append(get_point3(points,line,max_index[max_len//2],thr))
+        idx.append(get_point4(points,line,max_index[max_len//2],thr))
+        
+        for i in range(4):
+            if(idx[i] is not None):
+                x1,y1 = utils.find_intersection(points[idx[i]][0], points[idx[i]][1],\
+                    line[0], line[1], line[2])
+                d = utils.distance(points[0], (x1,y1)) / width
+                geometry['d'+str(i+1)] = d
+                h = utils.distance_point_line_squared(a_b_c=line, x0_y0=(x1,y1))
+                geometry['h'+str(i+1)] = h
+
+        # return the geometry
+        return geometry
+    except Exception as e:
+        print(str(e))
+        return None
+
+def get_point1(points:list,line:list,max_index:int,thr:int):
+    for i in range (len(points)):
+        if(i < max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)):
+                if(j < max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (abs(i - j) > 5):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                            break
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
+
+def get_point2(points,line,max_index,thr):
+    for i in range (len(points)-1,-1,-1):
+        if(i > max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)-1,-1,-1):
+                if(j > max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr)  and (abs(i-j) > 5):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                            break
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
+
+def get_point3(points,line,max_index,thr):
+    for i in range (len(points)-1,-1,-1):
+        if(i < max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)-1,-1,-1):
+                if(j < max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and  (abs(i - j) > 5):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                            break
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
+
+def get_point4(points,line,max_index,thr):
+    for i in range (len(points)):
+        if(i > max_index):
+            l1,l2,l3 = utils.find_orthagonal(x=points[i][0], y=points[i][1],\
+                                                a=line[0], b=line[1], c=line[2])
+            overlap = [l1*point[0] + l2*point[1] + l3 for point in points]
+            
+            min_val = 100000
+            min_index = 0
+            for j in range(len(points)):
+                if(j > max_index):
+                    # check if absoulte value of overlap is les than 10 the add to the cross list
+                    if(abs(overlap[j]) < thr) and (abs(i - j) > 5):
+                        if( min_val > abs(overlap[j])) :
+                            min_val = abs(overlap[j])
+                            min_index = j
+                            break
+                        
+            if(min_val != 100000):
+                # print(f" points[{min_index}] = {points[min_index]}")
+                return min_index
+    return None
