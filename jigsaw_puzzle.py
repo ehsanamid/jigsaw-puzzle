@@ -702,10 +702,14 @@ def sides(df: pd.DataFrame,side_df: pd.DataFrame):
                             side_df.loc[idx, 'Width'] = value['Width']
                             side_df.loc[idx, 'Height'] = value['Height']
                             side_df.loc[idx, 'symetry'] = value['symetry']
-                            side_df.loc[idx, 'head'] = value['head']
-                            side_df.loc[idx, 'h_symetry'] = value['h_symetry']
-                            side_df.loc[idx, 'neck'] = value['neck']
-                            side_df.loc[idx, 'n_symetry'] = value['n_symetry']
+                            side_df.loc[idx, 'd1'] = value['d1']
+                            side_df.loc[idx, 'h1'] = value['h1']
+                            side_df.loc[idx, 'd2'] = value['d2']
+                            side_df.loc[idx, 'h2'] = value['h2']
+                            side_df.loc[idx, 'd3'] = value['d3']
+                            side_df.loc[idx, 'h3'] = value['h3']
+                            side_df.loc[idx, 'd4'] = value['d4']
+                            side_df.loc[idx, 'h4'] = value['h4']
                     
                     df.to_csv("pieces.csv", index=False)
                     side_df.to_csv("sides.csv", index=False)

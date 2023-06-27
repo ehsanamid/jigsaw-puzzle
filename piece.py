@@ -1176,9 +1176,11 @@ def get_geometry(name: str, points:list):
                     line[0], line[1], line[2])
                 d = utils.distance(points[0], (x1,y1)) / width
                 geometry['d'+str(i+1)] = d
-                h = utils.distance_point_line_squared(a_b_c=line, x0_y0=(x1,y1))
+                h = utils.distance_point_line_squared(a_b_c=line, x0_y0=points[idx[i]])
                 geometry['h'+str(i+1)] = h
-
+            else:
+                geometry['d'+str(i+1)] = 200
+                geometry['h'+str(i+1)] = 200
         # return the geometry
         return geometry
     except Exception as e:
