@@ -1019,7 +1019,9 @@ class Piece:
                     filename = f"{self.name}_{i+1}_in"
                 else:
                     filename = f"{self.name}_{i+1}_out"
-                self.piece_geometry[filename] = get_geometry(self.name,side_points[i])
+
+                self.piece_geometry[filename] = get_geometry(self.name,side_points[i],\
+                                                            (self.in_out[i] == SideShape.IN))
 
 
             for i in range(4):
@@ -1114,8 +1116,13 @@ class Piece:
     
     
 
-def get_geometry(name: str, points:list):
+def get_geometry(name: str, points:list, dir: bool)->dict:
     try:
+
+        if(dir):
+            start_point = points[0]
+        else:
+            start_point = points[-1]
         geometry = {}
         geometry["piece_name"] = name
         # remove the first 5 points and the last 5 points
@@ -1157,30 +1164,51 @@ def get_geometry(name: str, points:list):
         # find the intercept point of ortagonal line from max_point and line
         x1,y1 = utils.find_intersection(max_point[0], max_point[1],\
             line[0], line[1], line[2])
-
-        symetry = utils.distance(points[0], (x1,y1)) / width
+        
+       
+        symetry = utils.distance(start_point, (x1,y1)) / width
+        
         geometry['symetry'] = symetry
 
         
 
         thr = 20
         idx = []
-        idx.append(get_point1(points,line,max_index[max_len//2],thr))
-        idx.append(get_point2(points,line,max_index[max_len//2],thr))
-        idx.append(get_point3(points,line,max_index[max_len//2],thr))
-        idx.append(get_point4(points,line,max_index[max_len//2],thr))
-        
+        if(dir):
+            idx.append(get_point1(points,line,max_index[max_len//2],thr))
+            idx.append(get_point2(points,line,max_index[max_len//2],thr))
+            idx.append(get_point3(points,line,max_index[max_len//2],thr))
+            idx.append(get_point4(points,line,max_index[max_len//2],thr))
+        else:
+            idx.append(get_point2(points,line,max_index[max_len//2],thr))
+            idx.append(get_point1(points,line,max_index[max_len//2],thr))
+            idx.append(get_point4(points,line,max_index[max_len//2],thr))
+            idx.append(get_point3(points,line,max_index[max_len//2],thr))
+            
+        ds = []
+        hs = []
         for i in range(4):
             if(idx[i] is not None):
                 x1,y1 = utils.find_intersection(points[idx[i]][0], points[idx[i]][1],\
                     line[0], line[1], line[2])
-                d = utils.distance(points[0], (x1,y1)) / width
-                geometry['d'+str(i+1)] = d
-                h = utils.distance_point_line_squared(a_b_c=line, x0_y0=points[idx[i]])
-                geometry['h'+str(i+1)] = h
+                d = utils.distance(start_point, (x1,y1)) 
+                ds.append(d)
+                hs.append(utils.distance_point_line_squared(a_b_c=line, x0_y0=points[idx[i]]))
+                # geometry['h'+str(i+1)] = h
             else:
-                geometry['d'+str(i+1)] = 200
-                geometry['h'+str(i+1)] = 200
+                ds.append(240)
+                hs.append(80)
+                # geometry['h'+str(i+1)] = 200
+        
+        geometry['d1'] = ds[0]
+        geometry['d2'] = ds[1]
+        geometry['d3'] = ds[2]
+        geometry['d4'] = ds[3]
+        geometry['h1'] = hs[0]
+        geometry['h2'] = hs[1]
+        geometry['h3'] = hs[2]
+        geometry['h4'] = hs[3]
+    
         # return the geometry
         return geometry
     except Exception as e:
